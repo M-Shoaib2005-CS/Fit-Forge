@@ -1,4 +1,5 @@
 using FitForge.BL; using FitForge.DL; using FitForge.Services;
+using Microsoft.AspNetCore.HttpOverrides;
 var builder = WebApplication.CreateBuilder(args);
 string cs = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection missing");
@@ -24,6 +25,12 @@ builder.Services.AddScoped<ProfileBL>(); builder.Services.AddScoped<AchievementB
 // Services
 builder.Services.AddScoped<IEmailService, EmailService>();
 var app = builder.Build();
+app.UseForwardedHeaders(new ForwardedHeadersOptions{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    // Render's proxy IPs aren't fixed, so clear the default restriction that would otherwise ignore the header
+    KnownNetworks = { },
+    KnownProxies = { }
+});
 if(!app.Environment.IsDevelopment()){app.UseExceptionHandler("/Home/Error");app.UseHsts();}
 else{app.UseDeveloperExceptionPage();}
 app.UseHttpsRedirection(); app.UseStaticFiles(); app.UseRouting(); app.UseSession(); app.UseAuthorization();
