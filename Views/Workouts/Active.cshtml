@@ -1,0 +1,330 @@
+@model FitForge.Models.ActiveWorkoutVM
+@{ ViewData["Title"]="Active Workout"; ViewData["Page"]="Workouts"; }
+
+<div class="active-header">
+  <div class="active-header-left">
+    <div class="active-title">@Model.DayName</div>
+    <div class="active-sub text-muted">@Model.ProgramName</div>
+  </div>
+  <div class="active-header-right">
+    <div class="active-timer" id="elapsed">00:00</div>
+    <div class="active-sets-pill" id="sets-done-pill">0/@Model.Exercises.Sum(e=>e.TargetSets)</div>
+  </div>
+</div>
+
+<!-- Exercise accordion stack -->
+<div class="ex-accordion" id="exercise-stack">
+  @{ int exIdx = 0; }
+  @foreach(var ex in Model.Exercises){
+    bool isFirst = exIdx == 0;
+    <div class='ex-card @(ex.IsFlagged?"ex-card--flagged":"")'
+         id="ex-@ex.PdeId"
+         data-pde="@ex.PdeId"
+         data-exercise="@ex.ExerciseId"
+         data-sets="@ex.TargetSets"
+         data-rest="@ex.RestSeconds"
+         data-mode="@ex.TrackingMode"
+         data-target-reps="@ex.TargetReps">
+
+      <!-- Card header — tap to expand/collapse -->
+      <div class="ex-card-header" onclick="toggleCard('@ex.PdeId')">
+        <div class="ex-thumb-sm">
+          <img src="/images/exercises/@(ex.ExerciseId).svg"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
+               style="width:100%;height:100%;object-fit:cover;border-radius:6px" loading="lazy"/>
+          <div class="ex-thumb-fallback" style="display:none">💪</div>
+        </div>
+        <div class="ex-card-info">
+          <div class="ex-card-name">
+            @ex.ExerciseName
+            @if(ex.IsFlagged){<span class="flag-dot" title="@ex.FlagReason">⚠️</span>}
+          </div>
+          <div class="ex-card-meta text-muted">
+            @ex.MuscleGroup · @ex.TargetSets sets ·
+            @if(ex.TrackDuration){<span>@ex.TargetReps s</span>}
+            else{<span>@ex.TargetReps reps</span>}
+            @if(ex.TargetWeight.HasValue){<span> @@@(ex.TargetWeight) kg</span>}
+          </div>
+        </div>
+        <div class="ex-card-status" id="status-@ex.PdeId">
+          <div class="ex-set-dots" id="dots-@ex.PdeId">
+            @for(int s=1;s<=ex.TargetSets;s++){<span class="set-dot" id="dot-@(ex.PdeId)-@s"></span>}
+          </div>
+          <div class="ex-chevron" id="chev-@ex.PdeId">@(isFirst?"▲":"▼")</div>
+        </div>
+      </div>
+
+      @if(ex.IsFlagged){
+        <div class="injury-banner">
+          <span>🩹 @ex.FlagReason</span>
+          @if(ex.AlternativeId.HasValue){
+            <button class="btn btn-sm" onclick="swapExercise(@ex.PdeId,@ex.AlternativeId,'@ex.AlternativeName')">
+              💡 Use @ex.AlternativeName
+            </button>
+          }
+        </div>
+      }
+
+      <!-- Sets — collapsible body -->
+      <div class="ex-card-body" id="body-@ex.PdeId" style="@(isFirst?"":"display:none")">
+        @for(int s=1;s<=ex.TargetSets;s++){
+          <div class="set-row" id="set-@(ex.PdeId)-@s" data-set="@s">
+            <div class="set-num">@s</div>
+            <div class="set-main">
+              <div class="set-target text-muted">
+                @if(ex.TrackDuration){<span>target @ex.TargetReps s</span>}
+                else{
+                  <span>target @ex.TargetReps reps</span>
+                  @if(ex.TargetWeight.HasValue){<span> · @(ex.TargetWeight) kg</span>}
+                }
+              </div>
+              <div class="set-inputs">
+                @if(ex.TrackDuration){
+                  <input type="number" inputmode="numeric" min="0" max="3600" placeholder="Seconds"
+                    class="set-input" data-pde="@ex.PdeId" data-set="@s" data-mode="duration"/>
+                } else {
+                  <input type="number" inputmode="numeric" min="0" max="999" placeholder="Reps"
+                    class="set-input" data-pde="@ex.PdeId" data-set="@s" data-mode="reps"/>
+                  @if(ex.TrackWeight){
+                    <input type="number" inputmode="decimal" min="0" max="999" step="0.5" placeholder="kg"
+                      class="set-input set-input--weight" data-pde="@ex.PdeId" data-set="@s" data-mode="weight"/>
+                  }
+                }
+              </div>
+            </div>
+            <div class="set-btns">
+              <button class="btn-set-done" onclick="markSet(@ex.PdeId,@s,this)" aria-label="Complete set">✓</button>
+              <button class="btn-set-skip" onclick="skipSet(@ex.PdeId,@s,this)" aria-label="Skip set">✗</button>
+            </div>
+          </div>
+        }
+
+        <!-- Per-exercise rest timer -->
+        <div class="rest-timer" id="rest-@ex.PdeId" style="display:none">
+          <div class="rest-body">
+            <div class="rest-progress-ring" id="rest-ring-@ex.PdeId">
+              <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="var(--bg2)" stroke-width="6"/>
+              <circle cx="50" cy="50" r="40" fill="none" stroke="var(--neon)" stroke-width="6"
+                stroke-dasharray="251.3" stroke-dashoffset="0" id="rest-arc-@ex.PdeId"
+                stroke-linecap="round" transform="rotate(-90 50 50)"/></svg>
+              <div class="rest-ring-center">
+                <div class="rest-label">REST</div>
+                <div class="rest-big" id="rest-count-@ex.PdeId">@ex.RestSeconds</div>
+              </div>
+            </div>
+            <button class="btn btn-sm btn-outline" onclick="skipRest('@ex.PdeId')">Skip</button>
+          </div>
+        </div>
+
+        @if(!string.IsNullOrEmpty(ex.Notes)){
+          <div class="ex-note text-muted">💬 @ex.Notes</div>
+        }
+      </div>
+    </div>
+    exIdx++;
+  }
+</div>
+
+<!-- Sticky finish bar -->
+<div class="finish-bar">
+  <div class="finish-bar-inner">
+    <div class="finish-rpe">
+      <span class="rpe-lbl text-muted">RPE</span>
+      <div class="rpe-pills">
+        @for(int r=1;r<=10;r++){
+          <button class="rpe-pill" data-rpe="@r" onclick="setRpe(@r,this)">@r</button>
+        }
+      </div>
+    </div>
+    <textarea id="session-notes" class="finish-notes" rows="1" placeholder="Session notes…"></textarea>
+    <button class="btn btn-solid finish-btn" id="finish-btn" onclick="finishSession()">
+      ✓ Finish
+    </button>
+  </div>
+</div>
+
+@section Scripts {
+<script>
+var SESSION_ID = @Model.SessionId;
+var DAY_ID     = @Model.DayId;
+var loggedSets = [];
+var doneCount  = 0;
+var totalSets  = @Model.Exercises.Sum(e=>e.TargetSets);
+var sessionRpe = null;
+var startTime  = Date.now();
+var restTimers = {};
+var _expanded  = '@Model.Exercises.FirstOrDefault()?.PdeId';
+
+// ── Elapsed timer ────────────────────────────────────────────
+setInterval(function(){
+  var sec = Math.floor((Date.now() - startTime) / 1000);
+  var m = Math.floor(sec/60).toString().padStart(2,'0');
+  var s = (sec % 60).toString().padStart(2,'0');
+  document.getElementById('elapsed').textContent = m + ':' + s;
+}, 1000);
+
+// ── Accordion ────────────────────────────────────────────────
+function toggleCard(pdeId){
+  var body = document.getElementById('body-' + pdeId);
+  var chev = document.getElementById('chev-' + pdeId);
+  if(!body) return;
+  var isOpen = body.style.display !== 'none';
+  // Close previous
+  if(_expanded && _expanded !== pdeId){
+    var ob = document.getElementById('body-' + _expanded);
+    var oc = document.getElementById('chev-' + _expanded);
+    if(ob) ob.style.display = 'none';
+    if(oc) oc.textContent = '▼';
+  }
+  body.style.display = isOpen ? 'none' : '';
+  chev.textContent   = isOpen ? '▼' : '▲';
+  _expanded = isOpen ? null : pdeId;
+}
+
+// ── Mark / Skip set ──────────────────────────────────────────
+function markSet(pdeId, setNum, btn){
+  var row    = document.getElementById('set-' + pdeId + '-' + setNum);
+  var inputs = row.querySelectorAll('.set-input');
+  var reps = 0, weight = null;
+  inputs.forEach(function(inp){
+    if(inp.dataset.mode === 'reps' || inp.dataset.mode === 'duration') reps = parseInt(inp.value) || 0;
+    if(inp.dataset.mode === 'weight') weight = parseFloat(inp.value) || null;
+  });
+  commitSet(pdeId, setNum, reps, weight, false, row, btn, row.querySelector('.btn-set-skip'));
+}
+
+function skipSet(pdeId, setNum, btn){
+  var row = document.getElementById('set-' + pdeId + '-' + setNum);
+  commitSet(pdeId, setNum, 0, null, true, row, row.querySelector('.btn-set-done'), btn);
+  row.classList.add('set-skipped');
+}
+
+function commitSet(pdeId, setNum, reps, weight, skipped, row, btn1, btn2){
+  row.classList.add(skipped ? 'set-skipped' : 'set-done');
+  if(btn1) btn1.disabled = true;
+  if(btn2) btn2.disabled = true;
+
+  // Dot indicator
+  var dot = document.getElementById('dot-' + pdeId + '-' + setNum);
+  if(dot){ dot.classList.add(skipped ? 'dot-skip' : 'dot-done'); }
+
+  // Store
+  loggedSets = loggedSets.filter(function(s){ return !(s.pdeId == pdeId && s.setNumber == setNum); });
+  var exId = document.getElementById('ex-' + pdeId).dataset.exercise;
+  var targetReps = parseInt(document.getElementById('ex-' + pdeId).dataset.targetReps) || 0;
+  loggedSets.push({ pdeId: parseInt(pdeId), exerciseId: parseInt(exId),
+    setNumber: setNum, targetReps: targetReps, actualReps: reps, weightKg: weight, rpe: sessionRpe, skipped: skipped });
+
+  doneCount++;
+  updateProgress();
+
+  // Rest timer — only if not last set and not skipped
+  var totalExSets = parseInt(document.getElementById('ex-' + pdeId).dataset.sets);
+  if(!skipped && setNum < totalExSets){
+    startRest(pdeId);
+  }
+
+  // Auto-scroll to next exercise when all sets done
+  if(doneCount === totalSets) scrollToFinish();
+}
+
+function updateProgress(){
+  document.getElementById('sets-done-pill').textContent = doneCount + '/' + totalSets;
+  var pct = totalSets > 0 ? doneCount / totalSets : 0;
+  document.querySelector('.active-header')?.style.setProperty('--pct', pct);
+}
+
+// ── Rest timer ────────────────────────────────────────────────
+function startRest(pdeId){
+  var card   = document.getElementById('ex-' + pdeId);
+  var total  = parseInt(card.dataset.rest) || 90;
+  var timerEl= document.getElementById('rest-' + pdeId);
+  var countEl= document.getElementById('rest-count-' + pdeId);
+  var arcEl  = document.getElementById('rest-arc-' + pdeId);
+  var CIRC   = 251.3;
+  if(!timerEl) return;
+  timerEl.style.display = 'block';
+  var remaining = total;
+  if(restTimers[pdeId]) clearInterval(restTimers[pdeId]);
+  restTimers[pdeId] = setInterval(function(){
+    remaining--;
+    if(countEl) countEl.textContent = remaining;
+    if(arcEl)   arcEl.style.strokeDashoffset = CIRC * (remaining / total);
+    if(remaining <= 3 && remaining > 0) showStackToast('⏱ Rest ending in ' + remaining + 's…', '', 1500);
+    if(remaining <= 0){
+      clearInterval(restTimers[pdeId]);
+      timerEl.style.display = 'none';
+      showStackToast('💥 Rest over — next set!', 'success', 2000);
+    }
+  }, 1000);
+  // Init arc
+  if(arcEl) arcEl.style.strokeDashoffset = CIRC;
+}
+
+function skipRest(pdeId){
+  if(restTimers[pdeId]) clearInterval(restTimers[pdeId]);
+  var t = document.getElementById('rest-' + pdeId);
+  if(t) t.style.display = 'none';
+}
+
+// ── RPE ──────────────────────────────────────────────────────
+function setRpe(val, btn){
+  sessionRpe = val;
+  loggedSets.forEach(function(s){ if(s.rpe == null) s.rpe = val; });
+  document.querySelectorAll('.rpe-pill').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+}
+
+// ── Swap exercise ─────────────────────────────────────────────
+function swapExercise(pdeId, altId, altName){
+  if(!confirm('Replace with ' + altName + '?')) return;
+  var card = document.getElementById('ex-' + pdeId);
+  card.querySelector('.ex-card-name').childNodes[0].textContent = altName + ' ';
+  var banner = card.querySelector('.injury-banner');
+  if(banner) banner.remove();
+  card.dataset.exercise = altId;
+  showStackToast('Swapped to ' + altName, 'success');
+}
+
+// ── Scroll to finish when all done ───────────────────────────
+function scrollToFinish(){
+  setTimeout(function(){
+    document.querySelector('.finish-bar')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    showStackToast('🎉 All sets done! Finish when ready.', 'success', 3000);
+  }, 400);
+}
+
+// ── Finish session ────────────────────────────────────────────
+function finishSession(){
+  if(loggedSets.length === 0 && !confirm('No sets logged. Finish anyway?')) return;
+  var btn = document.getElementById('finish-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  var notes = document.getElementById('session-notes').value;
+  loggedSets.forEach(function(s){ if(s.rpe == null && sessionRpe != null) s.rpe = sessionRpe; });
+  fetch('/Dashboard/FinishSession', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: SESSION_ID, dayId: DAY_ID, sets: loggedSets, notes: notes })
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if(d.success){
+      if(d.newAchievements && d.newAchievements.length > 0){
+        showAchievements(d.newAchievements);
+        setTimeout(function(){ window.location = '/Dashboard/Index'; }, d.newAchievements.length * 3500 + 500);
+      } else if(d.newPRs && d.newPRs.length > 0){
+        showStackToast('🏆 PR: ' + d.newPRs.join(', '), 'success', 3000);
+        setTimeout(function(){ window.location = '/Dashboard/Index'; }, 1800);
+      } else {
+        showStackToast('Session saved! 💪', 'success', 2000);
+        setTimeout(function(){ window.location = '/Dashboard/Index'; }, 1200);
+      }
+    } else {
+      btn.disabled = false; btn.textContent = '✓ Finish';
+      showStackToast('Error saving session — try again.', 'danger');
+    }
+  }).catch(function(){
+    btn.disabled = false; btn.textContent = '✓ Finish';
+    showStackToast('Network error', 'danger');
+  });
+}
+</script>
+}

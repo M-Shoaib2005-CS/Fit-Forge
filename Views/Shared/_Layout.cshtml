@@ -1,0 +1,125 @@
+@using FitForge.Models
+@{
+    string theme = ViewData["UserTheme"]?.ToString() ?? "dark";
+    string page  = ViewData["Page"]?.ToString() ?? "";
+}
+<!DOCTYPE html>
+<html id="html-root" lang="en" data-theme="@theme">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#00e5ff" />
+    <title>@ViewData["Title"] — FitForge</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght%40400;700;900&family=Rajdhani:wght%40400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body>
+<div class="shell">
+    <nav class="sidebar" role="navigation" aria-label="Main navigation">
+        <div class="logo">FF</div>
+        <a asp-controller="Dashboard" asp-action="Index"  class='nav-item @(page=="Dashboard"?"active":"")'  aria-label="Dashboard">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            <span>Home</span>
+        </a>
+        <a asp-controller="Programs"  asp-action="Index"  class='nav-item @(page=="Programs"?"active":"")'   aria-label="Programs">
+            <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
+            <span>Plans</span>
+        </a>
+        <a asp-controller="Workouts"  asp-action="Index"  class='nav-item @(page=="Workouts"?"active":"")'   aria-label="Workouts">
+            <svg viewBox="0 0 24 24"><path d="M6 12h12M3 9l3 3-3 3M21 9l-3 3 3 3"/></svg>
+            <span>Log</span>
+        </a>
+        <a asp-controller="Skills"    asp-action="Index"  class='nav-item @(page=="Skills"?"active":"")'     aria-label="Skills">
+            <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <span>Skills</span>
+        </a>
+        <a asp-controller="Profile"   asp-action="Index"  class='nav-item @(page=="Profile"?"active":"")'    aria-label="Profile">
+            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span>Profile</span>
+        </a>
+        <a asp-controller="Account"   asp-action="Logout" class="nav-item logout" aria-label="Logout">
+            <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+            <span>Out</span>
+        </a>
+    </nav>
+    <main class="main">
+        @if(TempData["Success"] != null){<div class='auto-toast' data-msg='@TempData["Success"]' data-type='success'></div>}
+        @if(TempData["Error"]   != null){<div class='auto-toast' data-msg='@TempData["Error"]'   data-type='danger'></div>}
+        @RenderBody()
+    </main>
+</div>
+
+<!-- Toast stack -->
+<div id="toast-stack" aria-live="polite"></div>
+<div class="toast" id="toast"></div>
+
+<!-- Achievement unlock overlay -->
+<div id="ach-overlay" class="ach-overlay" style="display:none" role="dialog" aria-modal="true" aria-label="Achievement unlocked">
+    <div class="ach-card" id="ach-card">
+        <div class="ach-glow"></div>
+        <div class="ach-label">ACHIEVEMENT UNLOCKED</div>
+        <div class="ach-icon" id="ach-icon">🏆</div>
+        <div class="ach-name" id="ach-name"></div>
+        <div class="ach-rarity" id="ach-rarity"></div>
+        <button class="btn btn-solid mt-2" onclick="closeAch()">Nice!</button>
+    </div>
+</div>
+
+<script src="~/js/app.js" asp-append-version="true"></script>
+<script>
+// ── PWA Service Worker ────────────────────────────────────────
+if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('/sw.js').catch(()=>{});
+}
+
+// ── Achievement overlay ───────────────────────────────────────
+var _achQueue = [];
+function showAchievements(list){
+    if(!list||!list.length) return;
+    _achQueue = _achQueue.concat(list);
+    if(_achQueue.length === list.length) nextAch();
+}
+function nextAch(){
+    if(!_achQueue.length) return;
+    var a = _achQueue.shift();
+    var overlay = document.getElementById('ach-overlay');
+    var card    = document.getElementById('ach-card');
+    document.getElementById('ach-icon').textContent  = a.icon  || '🏅';
+    document.getElementById('ach-name').textContent  = a.name  || '';
+    var rarityEl = document.getElementById('ach-rarity');
+    rarityEl.textContent  = (a.rarity||'common').toUpperCase();
+    rarityEl.className    = 'ach-rarity ach-rarity--'+(a.rarity||'common');
+    overlay.style.display = 'flex';
+    card.classList.remove('ach-pop');
+    void card.offsetWidth;
+    card.classList.add('ach-pop');
+}
+function closeAch(){
+    document.getElementById('ach-overlay').style.display='none';
+    setTimeout(nextAch, 350);
+}
+
+// ── Toast stack (multiple toasts) ────────────────────────────
+function showStackToast(msg, type, duration){
+    var stack = document.getElementById('toast-stack');
+    if(!stack) return;
+    var t = document.createElement('div');
+    t.className = 'stack-toast '+(type||'');
+    t.textContent = msg;
+    stack.appendChild(t);
+    requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ t.classList.add('visible'); }); });
+    setTimeout(()=>{
+        t.classList.remove('visible');
+        setTimeout(()=>t.remove(), 350);
+    }, duration||3200);
+}
+</script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

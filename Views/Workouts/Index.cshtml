@@ -1,0 +1,189 @@
+@model FitForge.Models.WorkoutsVM
+@{ ViewData["Title"]="Workouts"; }
+
+<div class="page-header">
+  <h1 class="page-title">Workouts</h1>
+</div>
+
+<!-- ── TABS ────────────────────────────────────────────────── -->
+<div class="tab-bar mb-2">
+  <button class="tab-pill active" onclick="switchTab('history',this)">History</button>
+  <button class="tab-pill"        onclick="switchTab('calendar',this)">Calendar</button>
+  <button class="tab-pill"        onclick="switchTab('prs',this)">PRs</button>
+  <button class="tab-pill"        onclick="switchTab('badges',this)">Badges</button>
+</div>
+
+<!-- ── HISTORY ──────────────────────────────────────────────── -->
+<div id="tab-history">
+  @if(!Model.History.Any()){
+    <div class="empty-state"><div class="empty-icon">🏋️</div><p>No sessions yet. Start your first workout!</p></div>
+  } else {
+    @foreach(var s in Model.History){
+      <div class="session-card" onclick="openSession(@s.SessionId)">
+        <div class="session-card-left">
+          <div class="session-date">@s.StartedAt.ToString("MMM d")</div>
+          <div class="session-time text-muted">@s.StartedAt.ToString("HH:mm")</div>
+        </div>
+        <div class="session-card-mid">
+          <div class="session-name">@s.DayName</div>
+          <div class="text-muted" style="font-size:12px">@s.ProgramName</div>
+        </div>
+        <div class="session-card-right">
+          @if(s.DurationSecs.HasValue){<div class="session-dur text-neon">@s.DurationDisplay</div>}
+          <div class="text-muted" style="font-size:12px">@s.TotalSets sets</div>
+        </div>
+      </div>
+    }
+  }
+</div>
+
+<!-- ── CALENDAR ─────────────────────────────────────────────── -->
+<div id="tab-calendar" style="display:none">
+  <div class="cal-header">
+    <button class="btn-icon cal-nav" onclick="calNav(-1)">‹</button>
+    <span class="cal-month-label" id="cal-label"></span>
+    <button class="btn-icon cal-nav" onclick="calNav(1)">›</button>
+  </div>
+  <div class="cal-weekdays">
+    @foreach(var d in new[]{"M","T","W","T","F","S","S"}){<div class="cal-wd">@d</div>}
+  </div>
+  <div class="cal-grid" id="cal-grid"><div class="cal-loading">Loading…</div></div>
+</div>
+
+<!-- ── PRs ─────────────────────────────────────────────────── -->
+<div id="tab-prs" style="display:none">
+  @if(!Model.PRs.Any()){
+    <div class="empty-state"><div class="empty-icon">🏆</div><p>No PRs yet — keep lifting!</p></div>
+  } else {
+    var grouped = Model.PRs.GroupBy(p=>p.ExerciseName).OrderBy(g=>g.Key);
+    @foreach(var g in grouped){
+      <div class="card mb-1">
+        <div class="pr-ex-header">@g.Key</div>
+        @foreach(var pr in g.OrderByDescending(p=>p.AchievedAt)){
+          <div class="pr-row">
+            <span class="text-muted" style="font-size:12px">@pr.RecordType.Replace("_"," ")</span>
+            <span class="pr-val text-neon">
+              @if(pr.RecordType=="max_weight"){<span>@pr.WeightKg kg</span>}
+              else if(pr.RecordType=="max_volume"){<span>@Math.Round(pr.Value,1) kg vol</span>}
+              else{<span>@((int)pr.Value) reps</span>}
+            </span>
+            <span class="text-muted" style="font-size:12px">@pr.AchievedAt.ToString("MMM d")</span>
+          </div>
+        }
+      </div>
+    }
+  }
+</div>
+
+<!-- ── BADGES ──────────────────────────────────────────────── -->
+<div id="tab-badges" style="display:none">
+  @if(!Model.Badges.Any()){
+    <div class="empty-state">
+      <div class="empty-icon">🥉</div>
+      <p>Complete workouts to earn exercise badges!</p>
+      <p class="text-muted" style="font-size:13px;margin-top:8px">Bronze→Silver→Gold→Diamond→Legend</p>
+    </div>
+  } else {
+    <div class="badges-page-grid">
+      @foreach(var b in Model.Badges){
+        <div class="badge-card badge-card--@b.Tier">
+          <div class="badge-card-icon">
+            @(b.Tier=="legend"?"⚡":b.Tier=="diamond"?"💎":b.Tier=="gold"?"🥇":b.Tier=="silver"?"🥈":"🥉")
+          </div>
+          <div class="badge-card-name">@b.ExerciseName</div>
+          <div class="badge-card-tier">@b.Tier.ToUpper()</div>
+          <div class="badge-card-sub text-muted">@b.SessionCount sessions</div>
+          @if(b.Tier != "legend"){
+            <div class="badge-prog-bar">
+              <div class="badge-prog-fill badge-fill--@b.Tier" style="width:@b.ProgressPct%"></div>
+            </div>
+            <div class="badge-prog-label text-muted">@b.SessionCount / @b.NextTierAt</div>
+          } else {
+            <div class="text-neon" style="font-size:11px;margin-top:4px">MAX TIER</div>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<!-- Session detail modal -->
+<div class="modal-backdrop" id="session-modal" style="display:none" onclick="if(event.target===this)closeSession()">
+  <div class="modal">
+    <div class="modal-header"><span id="sess-title">Session</span><button class="modal-close" onclick="closeSession()">✕</button></div>
+    <div class="modal-body" id="sess-body"><div class="loader"></div></div>
+  </div>
+</div>
+
+@section Scripts {
+<script>
+// ── TABS ──────────────────────────────────────────────────────
+function switchTab(id, btn){
+  document.querySelectorAll('[id^="tab-"]').forEach(t=>t.style.display='none');
+  document.getElementById('tab-'+id).style.display='';
+  document.querySelectorAll('.tab-pill').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(id==='calendar' && !_calLoaded){ _calLoaded=true; loadCal(_calY, _calM); }
+}
+
+// ── CALENDAR ─────────────────────────────────────────────────
+var _calLoaded=false, _calY=new Date().getFullYear(), _calM=new Date().getMonth()+1;
+var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function calNav(dir){ _calM+=dir; if(_calM>12){_calM=1;_calY++;} if(_calM<1){_calM=12;_calY--;} loadCal(_calY,_calM); }
+function loadCal(y,m){
+  document.getElementById('cal-label').textContent=MONTHS[m-1]+' '+y;
+  document.getElementById('cal-grid').innerHTML='<div class="cal-loading">Loading…</div>';
+  fetch('/Workouts/CalendarMonth?year='+y+'&month='+m)
+    .then(r=>r.json()).then(d=>{
+      if(!d.success){document.getElementById('cal-grid').innerHTML='<div class="text-muted">Error</div>';return;}
+      renderCal(d.days, y, m);
+    });
+}
+function renderCal(days, y, m){
+  var grid = document.getElementById('cal-grid');
+  grid.innerHTML='';
+  // leading blanks (Mon=0)
+  var first = new Date(y, m-1, 1).getDay(); // 0=Sun
+  var offset = first===0?6:first-1;
+  for(var i=0;i<offset;i++){ var b=document.createElement('div'); b.className='cal-cell cal-blank'; grid.appendChild(b); }
+  days.forEach(function(d){
+    var cell=document.createElement('div');
+    var cls='cal-cell';
+    if(d.isToday)  cls+=' cal-today';
+    if(d.isFuture) cls+=' cal-future';
+    if(d.hasWorkout && d.isCompleted) cls+=' cal-done';
+    else if(d.hasWorkout) cls+=' cal-started';
+    cell.className=cls;
+    cell.textContent=new Date(d.date).getDate();
+    if(d.sessionId) cell.onclick=()=>openSession(d.sessionId);
+    if(d.hasWorkout){
+      var dot=document.createElement('div'); dot.className='cal-dot'; cell.appendChild(dot);
+    }
+    grid.appendChild(cell);
+  });
+}
+
+// ── SESSION DETAIL ────────────────────────────────────────────
+function openSession(id){
+  document.getElementById('session-modal').style.display='flex';
+  document.getElementById('sess-body').innerHTML='<div class="loader"></div>';
+  fetch('/Workouts/SessionDetail?sessionId='+id).then(r=>r.json()).then(d=>{
+    if(!d.success){document.getElementById('sess-body').innerHTML='<p class="text-muted">No data.</p>';return;}
+    var dt=d.detail;
+    document.getElementById('sess-title').textContent=dt.dayLabel+' — '+new Date(dt.sessionDate).toLocaleDateString();
+    var html='<div class="session-detail">';
+    (dt.exercises||[]).forEach(function(ex){
+      html+='<div class="sess-ex"><div class="sess-ex-name">'+ex.exerciseName+'</div><div class="sess-sets">';
+      (ex.loggedSets||[]).forEach(function(s){
+        html+='<div class="sess-set"><span class="text-muted">Set '+s.setNumber+'</span> ';
+        html+='<span class="text-neon">'+s.actualReps+' reps'+(s.weightKg?' @@ '+s.weightKg+'kg':'')+'</span></div>';
+      });
+      html+='</div></div>';
+    });
+    html+='</div>';
+    document.getElementById('sess-body').innerHTML=html;
+  });
+}
+function closeSession(){ document.getElementById('session-modal').style.display='none'; }
+</script>
+}

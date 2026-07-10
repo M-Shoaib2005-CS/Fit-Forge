@@ -1,0 +1,397 @@
+@model FitForge.Models.ProfileVM
+@{ ViewData["Title"]="Profile"; }
+
+<div class="page-header">
+  <div>
+    <div class="avatar-circle">@Model.User.Initials</div>
+  </div>
+  <div>
+    <h1 class="page-title" style="margin:0">@Model.User.Name</h1>
+    <p class="text-muted">@@Model.User.Username · @Model.User.FitnessLevel</p>
+  </div>
+</div>
+
+<!-- ── TABS ────────────────────────────────────────────────── -->
+<div class="tab-bar mb-2">
+  <button class="tab-pill active" onclick="switchTab('stats',this)">Stats</button>
+  <button class="tab-pill"        onclick="switchTab('measurements',this)">Body</button>
+  <button class="tab-pill"        onclick="switchTab('achievements',this)">Badges</button>
+  <button class="tab-pill"        onclick="switchTab('settings',this)">Settings</button>
+</div>
+
+@if(TempData["Success"]!=null){<div class="alert alert-success mb-2">✅ @TempData["Success"]</div>}
+@if(TempData["Error"]  !=null){<div class="alert alert-danger  mb-2">❌ @TempData["Error"]</div>}
+
+<!-- ── STATS ────────────────────────────────────────────────── -->
+<div id="tab-stats">
+  <div class="profile-stat-grid">
+    <div class="profile-stat"><div class="profile-stat-val text-neon">@(Model.User.Height>0?Model.User.Height+"cm":"—")</div><div class="profile-stat-lbl">Height</div></div>
+    <div class="profile-stat"><div class="profile-stat-val text-neon">@(Model.User.Weight>0?Model.User.Weight+"kg":"—")</div><div class="profile-stat-lbl">Weight</div></div>
+    <div class="profile-stat"><div class="profile-stat-val @(Model.User.BMICat=="Normal"?"text-green":"text-warn")">@(Model.User.BMI>0?Model.User.BMI.ToString():"—")</div><div class="profile-stat-lbl">BMI · @Model.User.BMICat</div></div>
+    <div class="profile-stat"><div class="profile-stat-val text-neon">@Model.User.Age</div><div class="profile-stat-lbl">Age</div></div>
+  </div>
+
+  <!-- Weight chart -->
+  @if(Model.WeightHistory.Count > 1){
+  <div class="card mt-2">
+    <div class="section-title">Weight History</div>
+    <canvas id="weight-chart" height="140"></canvas>
+  </div>
+  }
+
+  <!-- Log weight -->
+  <div class="card mt-2">
+    <div class="section-title">Log Weight</div>
+    <form asp-action="LogWeight" method="post" class="inline-form">
+      @Html.AntiForgeryToken()
+      <input type="number" name="weight" class="form-input" placeholder="kg" step="0.1" min="30" max="300" required style="flex:1"/>
+      <input type="text"   name="notes"  class="form-input" placeholder="Notes (optional)" style="flex:2"/>
+      <button class="btn btn-solid" type="submit">Log</button>
+    </form>
+  </div>
+
+  <!-- Update stats -->
+  <div class="card mt-2">
+    <div class="section-title">Update Stats</div>
+    <form asp-action="UpdateStats" method="post">
+      @Html.AntiForgeryToken()
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Height (cm)</label><input type="number" name="height" class="form-input" value="@Model.User.Height" step="0.5" min="100" max="250"/></div>
+        <div class="form-group"><label class="form-label">Weight (kg)</label><input type="number" name="weight" class="form-input" value="@Model.User.Weight" step="0.1" min="30" max="300"/></div>
+      </div>
+      <button class="btn btn-solid mt-1" type="submit">Update</button>
+    </form>
+  </div>
+
+  <!-- Top PRs -->
+  @if(Model.TopPRs.Any()){
+  <div class="card mt-2">
+    <div class="section-title">Personal Records 🏆</div>
+    @foreach(var pr in Model.TopPRs){
+      <div class="pr-row">
+        <div class="pr-ex">@pr.ExerciseName <span class="text-muted" style="font-size:11px">@pr.RecordType.Replace("_"," ")</span></div>
+        <div class="pr-val text-neon">
+          @if(pr.RecordType=="max_weight"){<span>@pr.WeightKg kg</span>}
+          else if(pr.RecordType=="max_volume"){<span>@Math.Round(pr.Value,1) kg</span>}
+          else{<span>@((int)pr.Value) reps</span>}
+        </div>
+        <div class="text-muted" style="font-size:11px">@pr.AchievedAt.ToString("MMM d")</div>
+      </div>
+    }
+  </div>
+  }
+
+  <!-- Injuries -->
+  <div class="card mt-2">
+    <div class="card-header">
+      <div class="section-title">Injuries 🩹</div>
+      <button class="btn btn-sm" onclick="openInjuryModal()">+ Log</button>
+    </div>
+    @if(!Model.Injuries.Any()){
+      <p class="text-muted">No active injuries.</p>
+    } else {
+      @foreach(var inj in Model.Injuries){
+        <div class="injury-row">
+          <div><strong>@inj.BodyPart</strong> — @inj.Category</div>
+          <div class="text-muted" style="font-size:12px">@inj.OccurredDate.ToString("MMM d")</div>
+          <button class="btn btn-sm" onclick="resolveInjury(@inj.UiId)">✓</button>
+        </div>
+      }
+    }
+  </div>
+</div>
+
+<!-- ── BODY MEASUREMENTS ──────────────────────────────────── -->
+<div id="tab-measurements" style="display:none">
+  <button class="btn btn-solid w-100 mb-2" onclick="openMeasModal()">+ Log Measurements</button>
+
+  @if(Model.LatestMeasurement != null){
+  <div class="card mb-2">
+    <div class="section-title">Latest — @Model.LatestMeasurement.RecordedAt.ToString("MMM d, yyyy")</div>
+    <div class="meas-grid">
+      @{ var lm = Model.LatestMeasurement; }
+      @if(lm.ChestCm.HasValue)     {<div class="meas-item"><span class="meas-val">@lm.ChestCm</span><span class="meas-lbl">Chest</span></div>}
+      @if(lm.WaistCm.HasValue)     {<div class="meas-item"><span class="meas-val">@lm.WaistCm</span><span class="meas-lbl">Waist</span></div>}
+      @if(lm.HipsCm.HasValue)      {<div class="meas-item"><span class="meas-val">@lm.HipsCm</span><span class="meas-lbl">Hips</span></div>}
+      @if(lm.LeftArmCm.HasValue)   {<div class="meas-item"><span class="meas-val">@lm.LeftArmCm</span><span class="meas-lbl">L.Arm</span></div>}
+      @if(lm.RightArmCm.HasValue)  {<div class="meas-item"><span class="meas-val">@lm.RightArmCm</span><span class="meas-lbl">R.Arm</span></div>}
+      @if(lm.LeftThighCm.HasValue) {<div class="meas-item"><span class="meas-val">@lm.LeftThighCm</span><span class="meas-lbl">L.Thigh</span></div>}
+      @if(lm.RightThighCm.HasValue){<div class="meas-item"><span class="meas-val">@lm.RightThighCm</span><span class="meas-lbl">R.Thigh</span></div>}
+      @if(lm.NeckCm.HasValue)      {<div class="meas-item"><span class="meas-val">@lm.NeckCm</span><span class="meas-lbl">Neck</span></div>}
+      @if(lm.ShouldersCm.HasValue) {<div class="meas-item"><span class="meas-val">@lm.ShouldersCm</span><span class="meas-lbl">Shoulders</span></div>}
+      @if(lm.BodyFatPct.HasValue)  {<div class="meas-item"><span class="meas-val">@lm.BodyFatPct%</span><span class="meas-lbl">Body Fat</span></div>}
+    </div>
+  </div>
+  }
+
+  @if(Model.Measurements.Count > 1){
+  <div class="card mb-2">
+    <div class="section-title">History</div>
+    @foreach(var m in Model.Measurements){
+      <div class="meas-history-row">
+        <span class="text-muted">@m.RecordedAt.ToString("MMM d")</span>
+        @if(m.WaistCm.HasValue){<span>Waist @m.WaistCm cm</span>}
+        @if(m.MeasurementId > 0 && m.ChestCm.HasValue){<span>Chest @m.ChestCm cm</span>}
+      </div>
+    }
+  </div>
+  }
+
+  <!-- 1RM Calculator -->
+  <div class="card mt-2">
+    <div class="section-title">1RM Calculator</div>
+    <p class="text-muted mb-1" style="font-size:13px">Estimate your one-rep max using the Epley formula.</p>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Weight (kg)</label><input type="number" id="orm-weight" class="form-input" placeholder="100" step="0.5"/></div>
+      <div class="form-group"><label class="form-label">Reps done</label><input type="number" id="orm-reps" class="form-input" placeholder="5" min="1" max="30"/></div>
+    </div>
+    <button class="btn btn-solid" onclick="calcORM()">Calculate</button>
+    <div id="orm-result" class="orm-result" style="display:none"></div>
+  </div>
+
+  <!-- Macro Calculator -->
+  <div class="card mt-2">
+    <div class="section-title">Macro Calculator</div>
+    <p class="text-muted mb-1" style="font-size:13px">Based on your stats, goal, and activity level.</p>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Activity</label>
+        <select id="macro-activity" class="form-input">
+          <option value="1.2">Sedentary</option>
+          <option value="1.375">Light (1-3x/wk)</option>
+          <option value="1.55" selected>Moderate (3-5x/wk)</option>
+          <option value="1.725">Active (6-7x/wk)</option>
+          <option value="1.9">Very Active</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Goal</label>
+        <select id="macro-goal" class="form-input">
+          <option value="-300">Cut (lose fat)</option>
+          <option value="0" selected>Maintain</option>
+          <option value="300">Bulk (gain muscle)</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-solid" onclick="calcMacros()">Calculate</button>
+    <div id="macro-result" class="macro-result" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ── ACHIEVEMENTS & BADGES ─────────────────────────────── -->
+<div id="tab-achievements" style="display:none">
+  @{ var unlocked = Model.Achievements.Count(a=>a.IsUnlocked); }
+  <div class="ach-progress-bar-wrap card mb-2">
+    <div class="section-title">@unlocked / @Model.Achievements.Count Unlocked</div>
+    <div class="ach-overall-bar"><div class="ach-overall-fill" style="width:@(Model.Achievements.Any()?unlocked*100/Model.Achievements.Count:0)%"></div></div>
+  </div>
+
+  @foreach(var cat in Model.Achievements.GroupBy(a=>a.Category)){
+    <div class="section-title mt-2 mb-1" style="text-transform:capitalize">@cat.Key</div>
+    <div class="ach-grid">
+      @foreach(var a in cat){
+        <div class='ach-tile @(a.IsUnlocked?"ach-unlocked":"ach-locked")' title="@a.Description">
+          <div class="ach-tile-icon">@(a.IsUnlocked?a.Icon:"🔒")</div>
+          <div class="ach-tile-name">@a.Name</div>
+          <div class='ach-tile-rarity ach-rarity--@a.Rarity'>@a.Rarity.ToUpper()</div>
+          @if(a.IsUnlocked&&a.UnlockedAt.HasValue){
+            <div class="ach-tile-date text-muted">@a.UnlockedAt.Value.ToString("MMM d")</div>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  @if(Model.Badges.Any()){
+    <div class="section-title mt-3 mb-1">Exercise Badges</div>
+    <div class="badges-page-grid">
+      @foreach(var b in Model.Badges){
+        <div class="badge-card badge-card--@b.Tier">
+          <div class="badge-card-icon">@(b.Tier=="legend"?"⚡":b.Tier=="diamond"?"💎":b.Tier=="gold"?"🥇":b.Tier=="silver"?"🥈":"🥉")</div>
+          <div class="badge-card-name">@b.ExerciseName</div>
+          <div class="badge-card-tier">@b.Tier.ToUpper()</div>
+          <div class="badge-card-sub text-muted">@b.SessionCount sessions</div>
+          @if(b.Tier != "legend"){
+            <div class="badge-prog-bar"><div class="badge-prog-fill badge-fill--@b.Tier" style="width:@b.ProgressPct%"></div></div>
+            <div class="badge-prog-label text-muted">@b.SessionCount / @b.NextTierAt</div>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<!-- ── SETTINGS ──────────────────────────────────────────── -->
+<div id="tab-settings" style="display:none">
+  <div class="card mb-2">
+    <div class="section-title">Theme</div>
+    <div class="theme-toggle-row">
+      <button class='btn @(Model.User.Theme=="dark"?"btn-solid":"btn-outline")' onclick="setTheme('dark')">🌙 Dark</button>
+      <button class='btn @(Model.User.Theme=="light"?"btn-solid":"btn-outline")' onclick="setTheme('light')">☀️ Light</button>
+    </div>
+  </div>
+
+  <div class="card mb-2">
+    <div class="section-title">Change Password</div>
+    <form asp-action="ChangePassword" method="post">
+      @Html.AntiForgeryToken()
+      <input type="password" name="currentPassword" class="form-input mb-1" placeholder="Current password" required/>
+      <input type="password" name="newPassword"     class="form-input mb-1" placeholder="New password (min 8 chars)" required/>
+      <input type="password" name="confirmPassword" class="form-input mb-1" placeholder="Confirm new password" required/>
+      <button class="btn btn-solid" type="submit">Update Password</button>
+    </form>
+  </div>
+
+  <div class="card mb-2">
+    <div class="section-title" style="color:var(--danger)">Danger Zone</div>
+    <p class="text-muted mb-1" style="font-size:13px">This permanently deletes your account and all data.</p>
+    <form asp-action="DeleteAccount" method="post">
+      @Html.AntiForgeryToken()
+      <input type="text" name="confirmText" class="form-input mb-1" placeholder='Type DELETE to confirm'/>
+      <button class="btn btn-danger" type="submit">Delete Account</button>
+    </form>
+  </div>
+</div>
+
+<!-- Injury modal -->
+<div class="modal-backdrop" id="injury-modal" style="display:none" onclick="if(event.target===this)closeInjury()">
+  <div class="modal"><div class="modal-header"><span>Log Injury</span><button class="modal-close" onclick="closeInjury()">✕</button></div>
+    <div class="modal-body" id="injury-body"><div class="loader"></div></div>
+  </div>
+</div>
+
+<!-- Measurements modal -->
+<div class="modal-backdrop" id="meas-modal" style="display:none" onclick="if(event.target===this)closeMeas()">
+  <div class="modal">
+    <div class="modal-header"><span>Log Measurements</span><button class="modal-close" onclick="closeMeas()">✕</button></div>
+    <div class="modal-body">
+      <div class="meas-form-grid">
+        <div class="form-group"><label class="form-label">Chest (cm)</label><input type="number" id="m-chest"  class="form-input" step="0.1"/></div>
+        <div class="form-group"><label class="form-label">Waist (cm)</label><input type="number" id="m-waist"  class="form-input" step="0.1"/></div>
+        <div class="form-group"><label class="form-label">Hips  (cm)</label><input type="number" id="m-hips"   class="form-input" step="0.1"/></div>
+        <div class="form-group"><label class="form-label">L.Arm (cm)</label><input type="number" id="m-larm"   class="form-input" step="0.1"/></div>
+        <div class="form-group"><label class="form-label">R.Arm (cm)</label><input type="number" id="m-rarm"   class="form-input" step="0.1"/></div>
+        <div class="form-group"><label class="form-label">L.Thigh(cm)</label><input type="number" id="m-lthigh" class="form-input" step="0.1"/></div>
+        <div class="form-group"><label class="form-label">R.Thigh(cm)</label><input type="number" id="m-rthigh" class="form-input" step="0.1"/></div>
+        <div class="form-group"><label class="form-label">Neck  (cm)</label><input type="number" id="m-neck"   class="form-input" step="0.1"/></div>
+        <div class="form-group"><label class="form-label">Shoulders</label> <input type="number" id="m-shldr"  class="form-input" step="0.1"/></div>
+        <div class="form-group"><label class="form-label">Body Fat %</label><input type="number" id="m-bf"     class="form-input" step="0.1" min="1" max="60"/></div>
+      </div>
+      <input type="text" id="m-notes" class="form-input mt-1" placeholder="Notes (optional)"/>
+      <button class="btn btn-solid w-100 mt-2" onclick="saveMeasurements()">Save</button>
+    </div>
+  </div>
+</div>
+
+@section Scripts {
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+function switchTab(id,btn){
+  document.querySelectorAll('[id^="tab-"]').forEach(t=>t.style.display='none');
+  document.getElementById('tab-'+id).style.display='';
+  document.querySelectorAll('.tab-pill').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── Weight chart ──────────────────────────────────────────────
+var wLabels=@Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+    Model.WeightHistory.OrderBy(w=>w.RecordedAt).Select(w=>w.RecordedAt.ToString("MMM d"))));
+var wData=@Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+    Model.WeightHistory.OrderBy(w=>w.RecordedAt).Select(w=>w.WeightKg)));
+var ctx=document.getElementById('weight-chart');
+if(ctx && wLabels.length > 1){new Chart(ctx,{type:'line',data:{labels:wLabels,datasets:[{
+  data:wData,borderColor:'#00e5ff',backgroundColor:'rgba(0,229,255,0.08)',
+  borderWidth:2,pointRadius:3,pointBackgroundColor:'#00e5ff',tension:0.4,fill:true}]},
+  options:{plugins:{legend:{display:false}},scales:{
+    x:{ticks:{color:'#8b949e',maxTicksLimit:6},grid:{color:'#21262d'}},
+    y:{ticks:{color:'#8b949e'},grid:{color:'#21262d'}}
+  }}});}
+
+// ── Theme ──────────────────────────────────────────────────────
+function setTheme(t){
+  fetch('/Profile/SetTheme',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({theme:t})})
+    .then(()=>{ document.getElementById('html-root').setAttribute('data-theme',t); showToast('Theme updated','success'); });
+}
+
+// ── Injury ─────────────────────────────────────────────────────
+function openInjuryModal(){
+  document.getElementById('injury-modal').style.display='flex';
+  fetch('/Profile/GetInjuryVM').then(r=>r.json()).then(d=>{
+    if(!d.success)return;
+    var vm=d.data; var html='';
+    html+='<div class="form-group"><label class="form-label">Body Part</label><select id="inj-part" class="form-input"><option value="">Select…</option>';
+    var allParts=vm.jointParts.concat(vm.muscleParts);
+    allParts.forEach(p=>html+='<option value="'+p.partId+'">'+p.name+' ('+p.partType+')</option>');
+    html+='</select></div>';
+    html+='<div class="form-group"><label class="form-label">Injury Type</label><select id="inj-cat" class="form-input"><option value="">Select…</option>';
+    vm.categories.forEach(c=>html+='<option value="'+c.categoryId+'">'+c.name+'</option>');
+    html+='</select></div>';
+    html+='<input type="text" id="inj-notes" class="form-input mt-1" placeholder="Notes (optional)"/>';
+    html+='<button class="btn btn-solid w-100 mt-2" onclick="submitInjury()">Log Injury</button>';
+    document.getElementById('injury-body').innerHTML=html;
+  });
+}
+function submitInjury(){
+  var p=parseInt(document.getElementById('inj-part').value),c=parseInt(document.getElementById('inj-cat').value),n=document.getElementById('inj-notes').value;
+  if(!p||!c){showToast('Select body part and type','danger');return;}
+  fetch('/Profile/LogInjury',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({partId:p,categoryId:c,notes:n})})
+    .then(r=>r.json()).then(d=>{showToast(d.msg,d.success?'success':'danger');if(d.success){closeInjury();setTimeout(()=>location.reload(),800);}});
+}
+function closeInjury(){ document.getElementById('injury-modal').style.display='none'; }
+function resolveInjury(id){
+  if(!confirm('Mark as resolved?'))return;
+  fetch('/Profile/ResolveInjury',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(id)})
+    .then(r=>r.json()).then(d=>{ if(d.success){ showToast('Injury resolved','success'); setTimeout(()=>location.reload(),600); } });
+}
+
+// ── Measurements ──────────────────────────────────────────────
+function openMeasModal(){ document.getElementById('meas-modal').style.display='flex'; }
+function closeMeas()     { document.getElementById('meas-modal').style.display='none'; }
+function g(id){ var v=parseFloat(document.getElementById(id).value); return isNaN(v)?null:v; }
+function saveMeasurements(){
+  var req={chestCm:g('m-chest'),waistCm:g('m-waist'),hipsCm:g('m-hips'),leftArmCm:g('m-larm'),
+    rightArmCm:g('m-rarm'),leftThighCm:g('m-lthigh'),rightThighCm:g('m-rthigh'),
+    neckCm:g('m-neck'),shouldersCm:g('m-shldr'),bodyFatPct:g('m-bf'),
+    notes:document.getElementById('m-notes').value};
+  fetch('/Profile/LogMeasurement',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(req)})
+    .then(r=>r.json()).then(d=>{showToast(d.msg,d.success?'success':'danger');if(d.success){closeMeas();setTimeout(()=>location.reload(),800);}});
+}
+
+// ── 1RM Calculator ────────────────────────────────────────────
+function calcORM(){
+  var w=parseFloat(document.getElementById('orm-weight').value),r=parseInt(document.getElementById('orm-reps').value);
+  if(!w||!r||r<1){showToast('Enter weight and reps','danger');return;}
+  var orm=r===1?w:w*(1+r/30); // Epley formula
+  var el=document.getElementById('orm-result');
+  el.style.display='block';
+  el.innerHTML='<div class="orm-val text-neon">'+orm.toFixed(1)+' kg</div>'+
+    '<div class="text-muted" style="font-size:12px">Estimated 1RM (Epley) · '+
+    '<span>90%='+((orm*.9).toFixed(1))+'kg</span> · '+
+    '<span>80%='+((orm*.8).toFixed(1))+'kg</span> · '+
+    '<span>70%='+((orm*.7).toFixed(1))+'kg</span></div>';
+}
+
+// ── Macro Calculator ──────────────────────────────────────────
+function calcMacros(){
+  var w=@Model.User.Weight, h=@Model.User.Height, a=@Model.User.Age;
+  var gender='@Model.User.Gender'.toLowerCase();
+  if(!w||!h||!a){showToast('Update your stats first','danger');return;}
+  // Mifflin-St Jeor BMR
+  var bmr=gender.includes('female')?(10*w+6.25*h-5*a-161):(10*w+6.25*h-5*a+5);
+  var act=parseFloat(document.getElementById('macro-activity').value)||1.55;
+  var adj=parseInt(document.getElementById('macro-goal').value)||0;
+  var tdee=Math.round(bmr*act+adj);
+  var protein=Math.round(w*2.2); // 2.2g per kg
+  var fat=Math.round(tdee*0.25/9);
+  var carbs=Math.round((tdee-protein*4-fat*9)/4);
+  var el=document.getElementById('macro-result');
+  el.style.display='block';
+  el.innerHTML='<div class="macro-grid">'+
+    '<div class="macro-box"><div class="macro-val text-neon">'+tdee+'</div><div class="macro-lbl">Calories</div></div>'+
+    '<div class="macro-box"><div class="macro-val" style="color:var(--green)">'+protein+'g</div><div class="macro-lbl">Protein</div></div>'+
+    '<div class="macro-box"><div class="macro-val" style="color:var(--warn)">'+carbs+'g</div><div class="macro-lbl">Carbs</div></div>'+
+    '<div class="macro-box"><div class="macro-val" style="color:var(--purple)">'+fat+'g</div><div class="macro-lbl">Fat</div></div>'+
+    '</div>';
+}
+</script>
+}

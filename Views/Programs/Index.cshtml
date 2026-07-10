@@ -1,0 +1,440 @@
+@model FitForge.Models.ProgramsVM
+@{ ViewData["Title"]="Programs"; ViewData["Page"]="Programs"; }
+
+<div class="page-header">
+  <h1 class="page-title">Programs & Schedule</h1>
+  <div class="tab-pills">
+    <button class="tab-pill active" onclick="switchTab('myprograms',this)">My Programs</button>
+    <button class="tab-pill" onclick="switchTab('presets',this)">Presets</button>
+    <button class="tab-pill" onclick="switchTab('schedule',this)">Weekly Schedule</button>
+    <button class="tab-pill" onclick="switchTab('builder',this)">+ Build Program</button>
+  </div>
+</div>
+<div id="tab-myprograms">
+  @if(!Model.MyPrograms.Any()){
+    <div class="empty-state card">
+      <div class="empty-icon">🏗️</div>
+      <div>No programs yet. Use a preset or build your own.</div>
+    </div>
+  } else {
+    <div class="program-grid">
+      @foreach(var p in Model.MyPrograms){
+        <div class="program-card card">
+          <div class="program-card-header">
+            <div class="program-name">@p.Name</div>
+            <span class="badge badge-@(p.GoalType.ToLower().Replace(" ",""))">@p.GoalType</span>
+          </div>
+          <div class="program-desc text-muted">@p.Description</div>
+          <div class="program-meta text-muted">@p.ProgressionStyle progression · @p.CreatedAt.ToString("MMM d, yyyy")</div>
+          <div class="program-actions mt-1">
+            <button class="btn btn-sm btn-outline" onclick="viewProgram(@p.ProgramId)">View Days</button>
+            <button class="btn btn-sm btn-danger-outline" onclick="deleteProgram(@p.ProgramId,'@p.Name')">Delete</button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>
+<div id="tab-presets" style="display:none">
+  <div class="program-grid">
+    @foreach(var p in Model.PresetPrograms){
+      <div class="program-card card preset-card">
+        <div class="program-card-header">
+          <div class="program-name">@p.Name</div>
+          <span class="badge badge-neon">Preset</span>
+        </div>
+        <div class="program-desc text-muted">@p.Description</div>
+        <div class="program-meta text-muted">@p.GoalType · @p.ProgressionStyle</div>
+        <div class="program-actions mt-1">
+          <button class="btn btn-sm btn-outline" onclick="viewProgram(@p.ProgramId)">View Days</button>
+          <button class="btn btn-sm btn-solid" onclick="usePreset(@p.ProgramId,'@p.Name')">Use This Program</button>
+        </div>
+      </div>
+    }
+  </div>
+</div>
+<div id="tab-schedule" style="display:none">
+  <div class="card">
+    <div class="section-title">Assign program days to days of the week</div>
+    <p class="text-muted mb-2" style="font-size:13px">Each slot maps to a program day. Set to Rest for recovery days.</p>
+    <div class="schedule-grid">
+      @{ var days=new[]{"Mon","Tue","Wed","Thu","Fri","Sat","Sun"}; }
+      @for(int wd=0;wd<7;wd++){
+        var slot=Model.ActiveSchedule?.Slots.FirstOrDefault(s=>s.WeekDay==wd);
+        <div class="schedule-slot" data-wd="@wd">
+          <div class="slot-day">@days[wd]</div>
+          <select class="form-control slot-select" data-wd="@wd">
+            <option value="">Rest</option>
+            @foreach(var prog in Model.MyPrograms.Concat(Model.PresetPrograms)){
+              @foreach(var day in prog.Days.Where(d=>d.DayType=="Workout")){
+                                <option value="@day.DayId" selected="@(slot?.DayId == day.DayId ? "selected" : null)">
+                                    @prog.Name — @day.Name
+                                </option>
+              }
+            }
+          </select>
+        </div>
+      }
+    </div>
+    <button class="btn btn-solid mt-2" onclick="saveSchedule()">Save Schedule</button>
+  </div>
+</div>
+<div id="tab-builder" style="display:none">
+  <div class="card">
+    <div class="section-title">Build a New Program</div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>PROGRAM NAME</label>
+        <input id="b-name" class="form-control" placeholder="e.g. My PPL, Summer Cut"/>
+      </div>
+      <div class="form-group">
+        <label>GOAL TYPE</label>
+        <select id="b-goal" class="form-control">
+          <option value="General">General Fitness</option>
+          <option value="Strength">Strength</option>
+          <option value="Hypertrophy">Hypertrophy / Size</option>
+          <option value="Endurance">Endurance</option>
+          <option value="Fat Loss">Fat Loss</option>
+          <option value="Skill">Skill Development</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>PROGRESSION STYLE</label>
+      <div class="progression-options">
+        @foreach(var s in new[]{"Conservative","Moderate","Aggressive","Adaptive"}){
+          <label class="radio-card">
+            <input type="radio" name="progression" value="@s" @(s=="Adaptive"?"checked":string.Empty)/>
+            <div class="radio-card-inner">
+              <div class="radio-card-title">@s</div>
+              <div class="radio-card-desc text-muted">
+                @if(s=="Conservative"){<span>+1 rep when you hit target. Safe, steady.</span>}
+                else if(s=="Moderate"){<span>+2 reps on hit. Skip if missed.</span>}
+                else if(s=="Aggressive"){<span>Always push +2. High intensity.</span>}
+                else{<span>Adjusts based on your performance. Recommended.</span>}
+              </div>
+            </div>
+          </label>
+        }
+      </div>
+    </div>
+    <div class="form-group">
+      <label>DESCRIPTION (optional)</label>
+      <input id="b-desc" class="form-control" placeholder="Describe your program goal"/>
+    </div>
+    <div class="section-title mt-2">Program Days</div>
+    <div id="days-container"></div>
+    <div class="builder-actions">
+      <button class="btn btn-outline" onclick="addDay('Workout')">+ Workout Day</button>
+      <button class="btn btn-outline" onclick="addDay('Rest')">+ Rest Day</button>
+      <button class="btn btn-solid" onclick="saveProgram()">Save Program</button>
+    </div>
+  </div>
+</div>
+<div class="modal-backdrop" id="prog-modal" style="display:none" onclick="if(event.target===this)closeProg()">
+  <div class="modal modal-large">
+    <div class="modal-header">
+      <div class="modal-title" id="prog-modal-title">Program</div>
+      <button class="modal-close" onclick="closeProg()">✕</button>
+    </div>
+    <div class="modal-body" id="prog-modal-body"><div class="loading-spinner"></div></div>
+  </div>
+</div>
+
+@section Scripts {
+<script>
+// Bake exercise data into page for builder
+var ALL_EXERCISES=@Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+  Model.AllExercises.Select(e=>new{id=e.ExerciseId,name=e.Name,group=e.MuscleGroup,groupId=e.MuscleGroupId,type=e.ExerciseType,mode=e.TrackingMode}),
+  new System.Text.Json.JsonSerializerOptions{PropertyNamingPolicy=System.Text.Json.JsonNamingPolicy.CamelCase}));
+var ALL_MUSCLE_GROUPS=@Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+  Model.MuscleGroups.Select(g=>new{id=g.GroupId,name=g.Name}),
+  new System.Text.Json.JsonSerializerOptions{PropertyNamingPolicy=System.Text.Json.JsonNamingPolicy.CamelCase}));
+var dayCount=0;
+
+function switchTab(tab,btn){
+  ['myprograms','presets','schedule','builder'].forEach(t=>document.getElementById('tab-'+t).style.display='none');
+  document.getElementById('tab-'+tab).style.display='';
+  document.querySelectorAll('.tab-pill').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── BUILDER ──────────────────────────────────────────────────
+function addDay(type){
+  var idx=++dayCount;
+  var div=document.createElement('div');
+  div.className='builder-day'; div.id='day-'+idx; div.dataset.type=type;
+  div.innerHTML='<div class="builder-day-header">'+
+    '<input class="form-control day-name-input" placeholder="Day name (e.g. Push, Pull, Rest)" value="'+type+'" data-idx="'+idx+'"/>'+
+    '<select class="form-control day-type-select" data-idx="'+idx+'" onchange="updateDayType('+idx+',this.value)">'+
+    '<option value="Workout" '+(type==='Workout'?'selected':'')+'>Workout</option>'+
+    '<option value="Rest" '+(type==='Rest'?'selected':'')+'>Rest</option>'+
+    '<option value="Active Recovery" '+(type==='Active Recovery'?'selected':'')+'>Active Recovery</option>'+
+    '</select>'+
+    '<button class="btn btn-sm btn-danger-outline" onclick="removeDay('+idx+')">Remove</button>'+
+    '</div>'+
+    (type==='Workout'?'<div class="day-exercises" id="day-exs-'+idx+'"></div>'+
+    '<button class="btn btn-sm btn-outline mt-1" onclick="addExerciseToDay('+idx+')">+ Add Exercise</button>':'');
+  document.getElementById('days-container').appendChild(div);
+}
+
+function updateDayType(idx, type){
+  var div=document.getElementById('day-'+idx);
+  div.dataset.type=type;
+  var exDiv=div.querySelector('.day-exercises');
+  var addBtn=div.querySelector('.btn-sm.btn-outline');
+  if(type==='Workout'){
+    if(!exDiv){
+      var d=document.createElement('div');d.className='day-exercises';d.id='day-exs-'+idx;
+      div.insertBefore(d,div.querySelector('.builder-day-header').nextSibling);
+    }
+    if(!addBtn){
+      var b=document.createElement('button');b.className='btn btn-sm btn-outline mt-1';
+      b.textContent='+ Add Exercise';b.setAttribute('onclick','addExerciseToDay('+idx+')');
+      div.appendChild(b);
+    }
+  } else {
+    if(exDiv)exDiv.remove();
+    if(addBtn)addBtn.remove();
+  }
+}
+
+function removeDay(idx){document.getElementById('day-'+idx).remove();}
+
+function addExerciseToDay(dayIdx){
+  var container=document.getElementById('day-exs-'+dayIdx);
+  var exIdx=container.children.length+1;
+  // Build filter controls + exercise select
+  var filterHtml='<div class="ex-filter-row">'+
+    '<select class="form-control ex-filter-type" onchange="filterExercises('+dayIdx+','+exIdx+',this)">'+
+    '<option value="">All Types</option>'+
+    '<option value="Calisthenics">Calisthenics</option>'+
+    '<option value="Gym">Gym</option>'+
+    '<option value="Cardio">Cardio</option></select>'+
+    '<select class="form-control ex-filter-group" onchange="filterExercises('+dayIdx+','+exIdx+',null,this)">'+
+    '<option value="">All Muscles</option>'+
+    ALL_MUSCLE_GROUPS.map(g=>'<option value="'+g.id+'">'+g.name+'</option>').join('')+
+    '</select></div>';
+  var exOptions=ALL_EXERCISES.map(e=>'<option value="'+e.id+'" data-mode="'+e.mode+'" data-group="'+e.group+'" data-group-id="'+e.groupId+'" data-type="'+e.type+'">'+e.name+' ('+e.group+')</option>').join('');
+  var div=document.createElement('div');
+  div.className='builder-exercise'; div.id='bex-'+dayIdx+'-'+exIdx;
+  div.innerHTML=filterHtml+
+    '<div class="bex-row">'+
+    '<select class="form-control bex-select" id="bex-sel-'+dayIdx+'-'+exIdx+'" onchange="updateExerciseInputs('+dayIdx+','+exIdx+',this)">'+
+    '<option value="">Select exercise...</option>'+exOptions+'</select>'+
+    '<input type="number" class="form-control bex-sets" placeholder="Sets" value="3" min="1" max="10"/>'+
+    '<input type="number" class="form-control bex-reps" placeholder="Reps/Sec" value="10" min="1" max="999"/>'+
+    '<div class="bex-weight-wrap" id="bex-w-'+dayIdx+'-'+exIdx+'" style="display:none">'+
+    '<input type="number" class="form-control bex-weight" step="0.5" placeholder="kg (optional)"/></div>'+
+    '<input type="number" class="form-control bex-rest" placeholder="Rest (s)" value="90" min="0" max="600"/>'+
+    '<button class="btn btn-sm btn-danger-outline" onclick="this.closest(\'.builder-exercise\').remove()">✕</button>'+
+    '</div>';
+  container.appendChild(div);
+}
+
+function filterExercises(dayIdx, exIdx, typeSelect, groupSelect){
+  var sel=document.getElementById('bex-sel-'+dayIdx+'-'+exIdx);
+  var typeVal=typeSelect?typeSelect.value:typeSelect?.value||'';
+  var groupVal=groupSelect?groupSelect.value:'';
+  // rebuild options
+  var opts='<option value="">Select exercise...</option>';
+  ALL_EXERCISES.forEach(function(e){
+    if(typeVal&&e.type!==typeVal)return;
+    if(groupVal&&String(e.groupId)!==String(groupVal))return;
+    opts+='<option value="'+e.id+'" data-mode="'+e.mode+'" data-group="'+e.group+'" data-type="'+e.type+'">'+e.name+' ('+e.group+')</option>';
+  });
+  sel.innerHTML=opts;
+}
+
+function updateExerciseInputs(dayIdx, exIdx, sel){
+  var opt=sel.options[sel.selectedIndex];
+  var mode=opt.dataset.mode;
+  var wDiv=document.getElementById('bex-w-'+dayIdx+'-'+exIdx);
+  if(wDiv)wDiv.style.display=(mode==='reps_weight'?'':'none');
+}
+
+// ── AUTO-SCHEDULE HELPER ──────────────────────────────────────
+// Maps workout days from a program across Mon–Sun, then saves schedule.
+function autoScheduleFromDays(days, label){
+  var workoutDays=days.filter(function(d){return d.dayType==='Workout';});
+  var slots=[];
+  if(days.length<=7){
+    // Use program's day order directly mapped onto Mon(0)–Sun(6)
+    for(var wd=0;wd<7;wd++){
+      var day=days[wd]||null;
+      slots.push({weekDay:wd, dayId:(day&&day.dayType==='Workout')?day.dayId:null});
+    }
+  } else {
+    // Space workout days evenly across the week
+    var used={};
+    var spacing=Math.max(1,Math.floor(7/Math.max(workoutDays.length,1)));
+    for(var i=0;i<workoutDays.length&&i<7;i++){
+      var slot=Math.min(i*spacing,6);
+      while(used[slot]&&slot<6)slot++;
+      used[slot]=true;
+      slots.push({weekDay:slot, dayId:workoutDays[i].dayId});
+    }
+    for(var wd2=0;wd2<7;wd2++){
+      if(!used[wd2])slots.push({weekDay:wd2,dayId:null});
+    }
+  }
+  slots.sort(function(a,b){return a.weekDay-b.weekDay;});
+  fetch('/Programs/SaveSchedule',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({scheduleId:0,name:'My Schedule',slots:slots})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d.success){
+      showToast(label+' & week scheduled ✓','success');
+    } else {
+      showToast('Program saved! Set your weekly schedule manually.','success');
+    }
+    setTimeout(function(){location.reload();},1000);
+  });
+}
+
+function saveProgram(){
+  var name=document.getElementById('b-name').value.trim();
+  if(!name){showToast('Enter a program name','danger');return;}
+  var prog=document.querySelector('input[name="progression"]:checked')?.value||'Adaptive';
+  var days=[];
+  document.querySelectorAll('.builder-day').forEach(function(div){
+    var type=div.dataset.type;
+    var dayName=div.querySelector('.day-name-input')?.value.trim()||type;
+    var exs=[];
+    if(type==='Workout'){
+      div.querySelectorAll('.builder-exercise').forEach(function(bex){
+        var sel=bex.querySelector('.bex-select');
+        if(!sel||!sel.value)return;
+        exs.push({exerciseId:parseInt(sel.value),
+          sets:parseInt(bex.querySelector('.bex-sets').value)||3,
+          reps:parseInt(bex.querySelector('.bex-reps').value)||10,
+          weightKg:parseFloat(bex.querySelector('.bex-weight')?.value)||null,
+          restSeconds:parseInt(bex.querySelector('.bex-rest').value)||90});
+      });
+    }
+    days.push({name:dayName,dayType:type,exercises:exs});
+  });
+  if(!days.length){showToast('Add at least one day','danger');return;}
+  showToast('Saving program…','success');
+  fetch('/Programs/Create',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name:name,description:document.getElementById('b-desc').value,
+      goalType:document.getElementById('b-goal').value,progressionStyle:prog,days:days})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(!d.success){showToast(d.msg||'Error saving program','danger');return;}
+    // Fetch the newly created program to get real day IDs, then auto-schedule
+    fetch('/Programs/GetFull?programId='+d.programId)
+    .then(function(r){return r.json();}).then(function(fd){
+      if(fd.success&&fd.program&&fd.program.days){
+        autoScheduleFromDays(fd.program.days,'"'+name+'" saved');
+      } else {
+        showToast('Program saved! Go to Weekly Schedule to assign days.','success');
+        setTimeout(function(){location.reload();},1100);
+      }
+    });
+  });
+}
+
+// ── SCHEDULE ─────────────────────────────────────────────────
+function saveSchedule(){
+  var slots=[];
+  document.querySelectorAll('.slot-select').forEach(function(sel){
+    slots.push({weekDay:parseInt(sel.dataset.wd),dayId:sel.value?parseInt(sel.value):null});
+  });
+  fetch('/Programs/SaveSchedule',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({scheduleId:0,name:'My Schedule',slots:slots})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d.success)showToast('Schedule saved!','success');
+    else showToast(d.msg||'Error','danger');
+  });
+}
+
+// ── VIEW PROGRAM ─────────────────────────────────────────────
+function viewProgram(pid){
+  document.getElementById('prog-modal').style.display='flex';
+  document.getElementById('prog-modal-body').innerHTML='<div class="loading-spinner"></div>';
+  fetch('/Programs/GetFull?programId='+pid).then(function(r){return r.json();}).then(function(d){
+    if(!d.success){document.getElementById('prog-modal-body').innerHTML='<p>Error loading</p>';return;}
+    var p=d.program;
+    document.getElementById('prog-modal-title').textContent=p.name;
+    var html='<div class="text-muted mb-2">'+p.description+'</div>';
+    p.days.forEach(function(day){
+      html+='<div class="prog-day-block">';
+      html+='<div class="prog-day-header"><strong>Day '+day.dayOrder+': '+day.name+'</strong>'+(day.isRest?' <span class="badge badge-muted">Rest</span>':'')+'</div>';
+      if(!day.isRest&&day.exercises&&day.exercises.length){
+        day.exercises.forEach(function(ex){
+          html+='<div class="prog-ex-row">';
+          html+='<span>'+ex.exerciseName+'</span>';
+          html+='<span class="text-muted">'+ex.targetSets+'×'+ex.targetReps+(ex.targetWeightKg?' @@ '+ex.targetWeightKg+'kg':'')+'</span>';
+          html+='</div>';
+        });
+      }
+      html+='</div>';
+    });
+    document.getElementById('prog-modal-body').innerHTML=html;
+  });
+}
+function closeProg(){document.getElementById('prog-modal').style.display='none';}
+
+// ── USE PRESET ────────────────────────────────────────────────
+// Copies preset into user's library then auto-schedules the week
+function usePreset(pid, name){
+  if(!confirm('Use "'+name+'"?\n\nIt will be added to your programs and your weekly schedule will be set up automatically. You can still edit the schedule manually afterwards.'))return;
+  showToast('Setting up program…','success');
+  fetch('/Programs/GetFull?programId='+pid)
+  .then(function(r){return r.json();}).then(function(d){
+    if(!d.success){showToast('Error loading preset','danger');return;}
+    var p=d.program;
+    var req={
+      name:p.name,
+      description:p.description,
+      goalType:p.goalType,
+      progressionStyle:p.progressionStyle,
+      days:p.days.map(function(day){
+        return{
+          name:day.name,
+          dayType:day.dayType,
+          exercises:(day.exercises||[]).map(function(e){
+            return{exerciseId:e.exerciseId,sets:e.targetSets,reps:e.targetReps,
+              weightKg:e.targetWeightKg,restSeconds:e.restSeconds};
+          })
+        };
+      })
+    };
+    fetch('/Programs/Create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(req)})
+    .then(function(r){return r.json();}).then(function(d2){
+      if(!d2.success){showToast('Error adding program','danger');return;}
+      // Fetch new program to get real day IDs, then auto-schedule
+      fetch('/Programs/GetFull?programId='+d2.programId)
+      .then(function(r){return r.json();}).then(function(fd){
+        if(fd.success&&fd.program&&fd.program.days){
+          autoScheduleFromDays(fd.program.days,'"'+name+'" activated');
+        } else {
+          showToast('Program added! Go to Weekly Schedule to assign days.','success');
+          setTimeout(function(){location.reload();},1100);
+        }
+      });
+    });
+  });
+}
+
+// ── DELETE PROGRAM ────────────────────────────────────────────
+function deleteProgram(pid, name){
+  if(!confirm('Delete "'+name+'"? This cannot be undone.'))return;
+  fetch('/Programs/Delete',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(pid)})
+  .then(function(r){
+    if(!r.ok){showToast('Server error — could not delete','danger');return null;}
+    return r.json();
+  }).then(function(d){
+    if(!d)return;
+    if(d.success){
+      showToast('"'+name+'" deleted','success');
+      setTimeout(function(){location.reload();},700);
+    } else {
+      showToast(d.msg||'Could not delete program','danger');
+    }
+  }).catch(function(){
+    showToast('Network error — could not delete','danger');
+  });
+}
+</script>
+}

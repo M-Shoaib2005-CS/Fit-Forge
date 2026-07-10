@@ -1,0 +1,160 @@
+@model FitForge.Models.SkillsVM
+@{ ViewData["Title"]="Skills"; ViewData["Page"]="Skills"; }
+
+<div class="page-header">
+  <h1 class="page-title">Calisthenics Skills</h1>
+  <p class="text-muted">Progressive skill unlocks based on your strength. Log max reps in Workouts to meet requirements.</p>
+</div>
+
+@foreach(var cat in Model.Skills.GroupBy(s=>s.Category).OrderBy(g=>g.Key)){
+  <div class="skill-category">
+    <div class="section-title">@cat.Key</div>
+    <div class="skill-grid">
+      @foreach(var sk in cat){
+        var cardCls = "skill-card";
+        if(sk.IsUnlocked) cardCls += " skill-unlocked";
+        if(sk.IsMastered) cardCls += " skill-mastered";
+        <div class="@cardCls" onclick="openSkill(@sk.SkillId)">
+          <div class="skill-card-top">
+            <div class="badge-@(sk.Difficulty.ToLower()) skill-diff-badge">@sk.Difficulty</div>
+            @if(sk.IsMastered){
+              <div class="skill-mastered-badge">&#127942;</div>
+            } else if(sk.IsUnlocked){
+              <div class="skill-active-badge">&#9889; Active</div>
+            }
+          </div>
+          <div class="skill-name">@sk.Name</div>
+          <div class="skill-desc text-muted">@sk.Description</div>
+          @if(sk.IsUnlocked){
+            <div class="skill-progress-wrap">
+              <div class="skill-progress-bar">
+                <div class="skill-progress-fill" style="width:@(sk.Percent)%"></div>
+              </div>
+              <div class="skill-step-label text-muted">Step @sk.CurrentStep / @sk.TotalSteps</div>
+            </div>
+            @if(!string.IsNullOrEmpty(sk.CurrentStepTitle)){
+              <div class="skill-current-step text-muted">&#128204; @sk.CurrentStepTitle</div>
+            }
+          } else {
+            <div class="skill-lock-state text-muted">
+              @if(sk.RequirementsMet){
+                <span class="text-neon">&#10003; Requirements met — click to unlock</span>
+              } else {
+                <span>&#128274; Requirements not met</span>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+}
+<div class="modal-backdrop" id="skill-modal" style="display:none" onclick="if(event.target===this)closeSkill()">
+  <div class="modal modal-large">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="sk-title"></div>
+        <div class="text-muted" id="sk-meta"></div>
+      </div>
+      <button class="modal-close" onclick="closeSkill()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div id="sk-req-section"></div>
+      <div class="modal-cols">
+        <div id="sk-steps-col">
+          <div class="section-title">Steps</div>
+          <div id="sk-steps"></div>
+        </div>
+        <div id="sk-tips-col">
+          <div class="section-title">Tips</div>
+          <div id="sk-tips"></div>
+          <div class="section-title mt-2">Video Demo</div>
+          <div class="video-placeholder text-muted">&#128249; Video coming soon</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div id="sk-actions"></div>
+    </div>
+  </div>
+</div>
+
+@section Scripts {
+<script>
+var SKILLS=@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Skills,
+  new System.Text.Json.JsonSerializerOptions{PropertyNamingPolicy=System.Text.Json.JsonNamingPolicy.CamelCase}));
+var activeSkillId=null;
+
+function openSkill(id){
+  activeSkillId=id;
+  var sk=SKILLS.find(function(s){return s.skillId===id;});
+  if(!sk)return;
+  document.getElementById('sk-title').textContent=sk.name;
+  document.getElementById('sk-meta').textContent=sk.category+' \u00b7 '+sk.difficulty;
+
+  var reqHtml='';
+  if(sk.requirements&&sk.requirements.length){
+    reqHtml='<div class="req-section mb-2"><div class="section-title">Requirements</div><div class="req-list">';
+    sk.requirements.forEach(function(r){
+      reqHtml+='<div class="req-row '+(r.met?'req-met':'req-unmet')+'">';
+      reqHtml+='<span>'+(r.met?'\u2713':'\u2717')+' '+r.exerciseName+'</span>';
+      reqHtml+='<span class="text-muted">'+r.userBest+' / '+r.requiredReps+' reps</span></div>';
+    });
+    reqHtml+='</div></div>';
+  }
+  document.getElementById('sk-req-section').innerHTML=reqHtml;
+
+  var stepsHtml='';
+  (sk.steps||[]).forEach(function(s){
+    var isCur=sk.isUnlocked&&s.stepId===sk.currentStepId;
+    var doneCls=s.stepOrder<sk.currentStep?'step-done':'';
+    stepsHtml+='<div class="step-row '+(isCur?'step-current':doneCls)+'">';
+    stepsHtml+='<div class="step-num">'+(s.stepOrder<sk.currentStep?'\u2713':s.stepOrder)+'</div>';
+    stepsHtml+='<div class="step-info"><div class="step-title">'+s.title+'</div>';
+    if(isCur||s.stepOrder<=(sk.currentStep||0)+1)
+      stepsHtml+='<div class="step-inst text-muted">'+s.instructions+'</div>';
+    stepsHtml+='</div></div>';
+  });
+  document.getElementById('sk-steps').innerHTML=stepsHtml||'<p class="text-muted">No steps defined</p>';
+
+  var tipsHtml='';
+  (sk.tips||[]).forEach(function(t){tipsHtml+='<div class="tip-item">\uD83D\uDCA1 '+t+'</div>';});
+  document.getElementById('sk-tips').innerHTML=tipsHtml||'<p class="text-muted">No tips yet</p>';
+
+  var actHtml='';
+  if(sk.isUnlocked){
+    if(!sk.isMastered) actHtml+='<button class="btn btn-solid" onclick="advanceStep('+id+')">Mark Step Complete \u2713</button> ';
+    actHtml+='<button class="btn btn-outline" onclick="toggleSkill('+id+')">Remove Skill</button>';
+  } else {
+    if(sk.requirementsMet) actHtml='<button class="btn btn-solid" onclick="toggleSkill('+id+')">\uD83D\uDD13 Unlock Skill</button>';
+    else actHtml='<span class="text-muted">Meet requirements above to unlock</span>';
+  }
+  document.getElementById('sk-actions').innerHTML=actHtml;
+  document.getElementById('skill-modal').style.display='flex';
+}
+
+function closeSkill(){document.getElementById('skill-modal').style.display='none';}
+
+function toggleSkill(id){
+  fetch('/Skills/Toggle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({skillId:id})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d.newAchievements&&d.newAchievements.length>0){
+      showAchievements(d.newAchievements);
+      setTimeout(function(){location.reload();},d.newAchievements.length*3500+500);
+      return;
+    }
+    showToast(d.msg,d.success?'success':'danger');
+    if(d.success)setTimeout(function(){location.reload();},900);
+  });
+}
+
+function advanceStep(id){
+  fetch('/Skills/Advance',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({skillId:id})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d.newAchievements&&d.newAchievements.length>0){ showAchievements(d.newAchievements); setTimeout(function(){location.reload();},d.newAchievements.length*3500+500); return; }
+    showToast(d.msg,d.success?'success':'danger');
+    if(d.success)setTimeout(function(){location.reload();},900);
+  });
+}
+</script>
+}

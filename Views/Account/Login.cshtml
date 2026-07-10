@@ -1,0 +1,178 @@
+@{ Layout=null; ViewData["Title"]="Login"; }
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<title>FitForge</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght%40400;700;900&family=Rajdhani:wght%40400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="stylesheet" href="~/css/app.css" asp-append-version="true"/>
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-wrap">
+
+    <!-- LOGIN CARD -->
+    <div class="auth-card" id="login-card">
+      <div class="auth-brand">
+        <div class="auth-logo-mark">FF</div>
+        <div class="auth-logo-text">FITFORGE</div>
+      </div>
+      <div class="auth-sub">TRAIN SMARTER. PROGRESS DAILY.</div>
+
+      @if(TempData["LoginError"] != null){
+        <div class="alert alert-danger auth-alert">@TempData["LoginError"]</div>
+      }
+
+      <form method="post" asp-action="Login" asp-controller="Account" autocomplete="on">
+        @Html.AntiForgeryToken()
+        <div class="form-group">
+          <label class="auth-label">USERNAME</label>
+          <input name="username" class="form-control" placeholder="your_username" required
+            autocomplete="username"
+            value="@(TempData["LoginUsername"]?.ToString() ?? "")"/>
+        </div>
+        <div class="form-group">
+          <label class="auth-label">PASSWORD</label>
+          <div class="pw-field">
+            <input name="password" type="password" id="login-pw" class="form-control" placeholder="••••••••" required autocomplete="current-password"/>
+            <button type="button" class="pw-toggle" onclick="togglePw('login-pw',this)" tabindex="-1">👁</button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-solid w-100 mt-2">LOGIN →</button>
+      </form>
+      <div class="auth-switch">No account? <a href="#" onclick="showPanel('register')">Register here</a></div>
+    </div>
+
+    <!-- REGISTER CARD -->
+    <div class="auth-card" id="register-card" style="display:none">
+      <div class="auth-brand">
+        <div class="auth-logo-mark">+</div>
+        <div class="auth-logo-text">CREATE ACCOUNT</div>
+      </div>
+
+      @if(TempData["RegError"] != null){
+        <div class="alert alert-danger auth-alert">@TempData["RegError"]</div>
+      }
+
+      <form method="post" asp-action="Register" asp-controller="Account" autocomplete="on">
+        @Html.AntiForgeryToken()
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="auth-label">FULL NAME</label>
+            <input name="name" class="form-control" placeholder="Alex Rahman" required
+              value="@(TempData["RegName"]?.ToString() ?? "")"/>
+          </div>
+          <div class="form-group">
+            <label class="auth-label">USERNAME</label>
+            <input name="username" class="form-control" placeholder="alex_r" required
+              value="@(TempData["RegUsername"]?.ToString() ?? "")"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="auth-label">EMAIL</label>
+          <input name="email" type="email" class="form-control" placeholder="alex@email.com" required
+            value="@(TempData["RegEmail"]?.ToString() ?? "")"/>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="auth-label">PASSWORD</label>
+            <div class="pw-field">
+              <input name="password" id="reg-pw" type="password" class="form-control" placeholder="Min 8 chars" required/>
+              <button type="button" class="pw-toggle" onclick="togglePw('reg-pw',this)" tabindex="-1">👁</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="auth-label">CONFIRM</label>
+            <input name="confirm" type="password" class="form-control" placeholder="Repeat" required/>
+          </div>
+        </div>
+        <div class="pw-strength" id="pw-strength" style="display:none">
+          <div class="pw-bar"><div id="pw-fill"></div></div>
+          <span id="pw-label"></span>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="auth-label">DATE OF BIRTH</label>
+            <input name="dob" type="date" class="form-control" required
+              value="@(TempData["RegDob"]?.ToString() ?? "")"/>
+          </div>
+          <div class="form-group">
+            <label class="auth-label">GENDER</label>
+            <select name="gender" class="form-control">
+              <option value="Male" selected="@(TempData["RegGender"]?.ToString()=="Male")">Male</option>
+              <option value="Female" selected="@(TempData["RegGender"]?.ToString()=="Female")">Female</option>
+              <option value="Other" selected="@(TempData["RegGender"]?.ToString()=="Other")">Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="auth-label">HEIGHT (cm)</label>
+            <input name="height" type="number" step="0.1" min="100" max="250" class="form-control" placeholder="175" required
+              value="@(TempData["RegHeight"]?.ToString() ?? "")"/>
+          </div>
+          <div class="form-group">
+            <label class="auth-label">WEIGHT (kg)</label>
+            <input name="weight" type="number" step="0.1" min="30" max="300" class="form-control" placeholder="70" required
+              value="@(TempData["RegWeight"]?.ToString() ?? "")"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="auth-label">FITNESS LEVEL</label>
+          <select name="fitnessLevel" class="form-control">
+            <option value="Beginner" selected="@(TempData["RegLevel"]?.ToString()=="Beginner")">Beginner — just starting out</option>
+            <option value="Intermediate" selected="@(TempData["RegLevel"]?.ToString()=="Intermediate")">Intermediate — training regularly</option>
+            <option value="Advanced" selected="@(TempData["RegLevel"]?.ToString()=="Advanced")">Advanced — experienced athlete</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-solid w-100 mt-2">CREATE ACCOUNT →</button>
+      </form>
+      <div class="auth-switch">Have an account? <a href="#" onclick="showPanel('login')">Login here</a></div>
+    </div>
+
+  </div>
+</div>
+<script>
+function showPanel(p){
+  document.getElementById('login-card').style.display    = p==='login'    ? '' : 'none';
+  document.getElementById('register-card').style.display = p==='register' ? '' : 'none';
+}
+@if(TempData["ShowReg"] != null){ <text>showPanel('register');</text> }
+
+// Password visibility toggle
+function togglePw(id, btn){
+  var el = document.getElementById(id);
+  if(!el) return;
+  el.type = el.type === 'password' ? 'text' : 'password';
+  btn.textContent = el.type === 'password' ? '👁' : '🙈';
+}
+
+// Password strength meter
+var pwInput = document.getElementById('reg-pw');
+if(pwInput){
+  pwInput.addEventListener('input', function(){
+    var v = this.value;
+    var str = document.getElementById('pw-strength');
+    if(!v){ str.style.display='none'; return; }
+    str.style.display = 'flex';
+    var score = 0;
+    if(v.length >= 8) score++;
+    if(/[A-Z]/.test(v)) score++;
+    if(/[0-9]/.test(v)) score++;
+    if(/[^A-Za-z0-9]/.test(v)) score++;
+    var colors = ['#ff4d4d','#f0a500','#3fb950','#00e5ff'];
+    var labels = ['Weak','Fair','Good','Strong'];
+    var fill   = document.getElementById('pw-fill');
+    var lbl    = document.getElementById('pw-label');
+    fill.style.width      = (score * 25) + '%';
+    fill.style.background = colors[score-1] || '#ff4d4d';
+    lbl.textContent       = labels[score-1] || 'Too short';
+    lbl.style.color       = colors[score-1] || '#ff4d4d';
+  });
+}
+</script>
+</body>
+</html>
