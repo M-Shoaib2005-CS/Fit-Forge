@@ -93,6 +93,11 @@
           <div class="pw-bar"><div id="pw-fill"></div></div>
           <span id="pw-label"></span>
         </div>
+        <ul class="pw-checklist" id="pw-checklist" style="display:none;list-style:none;padding:0;margin:6px 0 0;font-size:11px;">
+          <li id="pw-rule-len"    class="pw-rule">○ At least 8 characters</li>
+          <li id="pw-rule-upper"  class="pw-rule">○ One uppercase letter</li>
+          <li id="pw-rule-digit"  class="pw-rule">○ One number</li>
+        </ul>
         <div class="grid-2">
           <div class="form-group">
             <label class="auth-label">DATE OF BIRTH</label>
@@ -156,12 +161,23 @@ if(pwInput){
   pwInput.addEventListener('input', function(){
     var v = this.value;
     var str = document.getElementById('pw-strength');
-    if(!v){ str.style.display='none'; return; }
+    var checklist = document.getElementById('pw-checklist');
+    if(!v){ str.style.display='none'; checklist.style.display='none'; return; }
     str.style.display = 'flex';
+    checklist.style.display = 'block';
+
+    var hasLen   = v.length >= 8;
+    var hasUpper = /[A-Z]/.test(v);
+    var hasDigit = /[0-9]/.test(v);
+
+    setRule('pw-rule-len',   hasLen,   'At least 8 characters');
+    setRule('pw-rule-upper', hasUpper, 'One uppercase letter');
+    setRule('pw-rule-digit', hasDigit, 'One number');
+
     var score = 0;
-    if(v.length >= 8) score++;
-    if(/[A-Z]/.test(v)) score++;
-    if(/[0-9]/.test(v)) score++;
+    if(hasLen) score++;
+    if(hasUpper) score++;
+    if(hasDigit) score++;
     if(/[^A-Za-z0-9]/.test(v)) score++;
     var colors = ['#ff4d4d','#f0a500','#3fb950','#00e5ff'];
     var labels = ['Weak','Fair','Good','Strong'];
@@ -172,6 +188,11 @@ if(pwInput){
     lbl.textContent       = labels[score-1] || 'Too short';
     lbl.style.color       = colors[score-1] || '#ff4d4d';
   });
+}
+function setRule(id, met, text){
+  var el = document.getElementById(id);
+  el.textContent = (met ? '✓ ' : '○ ') + text;
+  el.style.color = met ? '#3fb950' : '#8b949e';
 }
 </script>
 </body>
