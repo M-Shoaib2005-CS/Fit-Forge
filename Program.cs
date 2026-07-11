@@ -1,6 +1,7 @@
 using FitForge.BL; using FitForge.DL; using FitForge.Services;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Authentication.Cookies;
 var builder = WebApplication.CreateBuilder(args);
 string cs = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection missing");
@@ -8,6 +9,17 @@ DB.Configure(cs);
 builder.Services.AddDataProtection().SetApplicationName("FitForge");
 builder.Services.Configure<Microsoft.AspNetCore.DataProtection.KeyManagement.KeyManagementOptions>(o =>
     o.XmlRepository = new DbXmlRepository());
+// Persistent login: the user's identity is encrypted straight into the cookie,
+// so login survives server restarts/redeploys (unlike the old Session-only approach).
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(o => {
+        o.LoginPath = "/Account/Login";
+        o.ExpireTimeSpan = TimeSpan.FromDays(60);
+        o.SlidingExpiration = true; // resets the 60-day clock on activity
+        o.Cookie.HttpOnly = true;
+        o.Cookie.IsEssential = true;
+        o.Cookie.SameSite = SameSiteMode.Lax;
+    });
 builder.Services.AddControllersWithViews()
     .AddJsonOptions(o=>o.JsonSerializerOptions.PropertyNamingPolicy=System.Text.Json.JsonNamingPolicy.CamelCase);
 builder.Services.AddDistributedMemoryCache();
@@ -37,6 +49,6 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions{
 });
 if(!app.Environment.IsDevelopment()){app.UseExceptionHandler("/Home/Error");app.UseHsts();}
 else{app.UseDeveloperExceptionPage();}
-app.UseHttpsRedirection(); app.UseStaticFiles(); app.UseRouting(); app.UseSession(); app.UseAuthorization();
+app.UseHttpsRedirection(); app.UseStaticFiles(); app.UseRouting(); app.UseSession(); app.UseAuthentication(); app.UseAuthorization();
 app.MapControllerRoute("default","{controller=Account}/{action=Login}/{id?}");
 app.Run();
