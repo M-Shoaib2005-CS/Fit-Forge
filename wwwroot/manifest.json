@@ -3,6 +3,7 @@
   "short_name": "FitForge",
   "description": "Your adaptive fitness companion",
   "start_url": "/Dashboard/Index",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0d1117",
