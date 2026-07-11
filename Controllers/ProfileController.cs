@@ -55,10 +55,10 @@ namespace FitForge.Controllers
             return Json(new{success=true,data=bl.GetInjuryReportVM(Uid.Value)});
         }
         [HttpPost,ValidateAntiForgeryToken]
-        public IActionResult DeleteAccount(string confirmText){
+        public async Task<IActionResult> DeleteAccount(string confirmText){
             if(Uid==null)return RedirectToAction("Login","Account");
             if(confirmText?.ToUpper()!="DELETE"){TempData["Error"]="Type DELETE to confirm";return RedirectToAction("Index");}
-            uBL.DeleteAccount(Uid.Value); return RedirectToAction("Login","Account");
+            await uBL.DeleteAccount(Uid.Value); return RedirectToAction("Login","Account");
         }
     }
 }
