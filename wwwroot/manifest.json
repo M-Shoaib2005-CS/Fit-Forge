@@ -2,7 +2,7 @@
   "name": "FitForge",
   "short_name": "FitForge",
   "description": "Your adaptive fitness companion",
-  "start_url": "/Dashboard",
+  "start_url": "/Dashboard/Index",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0d1117",
@@ -12,8 +12,8 @@
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ],
   "shortcuts": [
-    { "name": "Start Workout", "url": "/Workouts", "description": "Go to workouts" },
-    { "name": "Dashboard",     "url": "/Dashboard", "description": "View dashboard" }
+    { "name": "Start Workout", "url": "/Workouts/Index", "description": "Go to workouts" },
+    { "name": "Dashboard",     "url": "/Dashboard/Index", "description": "View dashboard" }
   ],
   "categories": ["health", "fitness", "sports"]
 }
