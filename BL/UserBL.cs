@@ -1,5 +1,8 @@
 using Microsoft.Extensions.Logging;
 using FitForge.DL; using FitForge.Models; using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 namespace FitForge.BL
 {
     public class UserBL(UserDL dl, IHttpContextAccessor http, ILogger<UserBL> log)
@@ -16,7 +19,7 @@ namespace FitForge.BL
             if(w<30||w>300)                           return "Weight must be 30–300 kg";
             return null;
         }
-        public (bool ok, string msg) Register(string name,string username,string email,string pw,string confirm,string dob,string gender,double h,double w,string level){
+        public async Task<(bool ok, string msg)> Register(string name,string username,string email,string pw,string confirm,string dob,string gender,double h,double w,string level){
             var err=ValidateRegistration(name,username,email,pw,confirm,h,w);
             if(err!=null)return(false,err);
             try{
@@ -24,7 +27,7 @@ namespace FitForge.BL
                 int uid=dl.Register(name.Trim(),username.Trim(),email.Trim(),hash);
                 var d=DateTime.TryParse(dob,out var dt)?dt:DateTime.Now.AddYears(-20);
                 dl.CreateProfile(uid,d,gender,(decimal)h,(decimal)w,level);
-                SetSession(uid,name.Trim());
+                await SetSessionAsync(uid,name.Trim());
                 return(true,"");
             }catch(Exception ex){
                 string msg=ex.Message.Contains("Duplicate")?"Username or email already taken":"Registration failed";
@@ -32,10 +35,10 @@ namespace FitForge.BL
                 return(false,msg);
             }
         }
-        public (bool ok, string msg) Login(string username, string password){
+        public async Task<(bool ok, string msg)> Login(string username, string password){
             var(user,msg)=dl.Login(username?.Trim()??"",password??"");
             if(user==null)return(false,msg);
-            SetSession(user.UserId,user.Name);
+            await SetSessionAsync(user.UserId,user.Name);
             return(true,"");
         }
         public void UpdateTheme(int uid,string theme)=>dl.UpdateTheme(uid,theme);
@@ -47,7 +50,36 @@ namespace FitForge.BL
             string r=dl.UpdatePassword(uid,cur,newPw);
             return(r=="Password updated",r);
         }
-        public void DeleteAccount(int uid){dl.DeleteAccount(uid);http.HttpContext?.Session.Clear();}
-        private void SetSession(int uid,string name){http.HttpContext?.Session.SetInt32("uid",uid);http.HttpContext?.Session.SetString("uname",name);}
+        public async Task DeleteAccount(int uid){
+            dl.DeleteAccount(uid);
+            var ctx = http.HttpContext;
+            if(ctx!=null){
+                ctx.Session.Clear();
+                await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            }
+        }
+
+        /// <summary>
+        /// Marks the user logged in two ways: the existing Session (fast, but wiped on
+        /// server restart) and a persistent, sliding-expiration auth cookie (survives
+        /// restarts/redeploys since the identity is encrypted directly into the cookie).
+        /// </summary>
+        private async Task SetSessionAsync(int uid,string name){
+            var ctx = http.HttpContext;
+            if(ctx==null) return;
+            ctx.Session.SetInt32("uid",uid);
+            ctx.Session.SetString("uname",name);
+
+            var claims = new List<Claim>{
+                new Claim(ClaimTypes.NameIdentifier, uid.ToString()),
+                new Claim(ClaimTypes.Name, name)
+            };
+            var identity  = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var principal = new ClaimsPrincipal(identity);
+            await ctx.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal, new AuthenticationProperties{
+                IsPersistent = true,
+                ExpiresUtc   = DateTimeOffset.UtcNow.AddDays(60)
+            });
+        }
     }
 }
