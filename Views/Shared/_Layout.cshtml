@@ -47,6 +47,10 @@
             <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
             <span>Out</span>
         </a>
+        <button id="pwa-install-btn" class="nav-item" style="display:none;border:none;background:none;width:100%;cursor:pointer" aria-label="Install app" onclick="installPwa()">
+            <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/></svg>
+            <span>Install</span>
+        </button>
     </nav>
     <main class="main">
         @if(TempData["Success"] != null){<div class='auto-toast' data-msg='@TempData["Success"]' data-type='success'></div>}
@@ -77,6 +81,34 @@
 if('serviceWorker' in navigator){
     navigator.serviceWorker.register('/sw.js').catch(()=>{});
 }
+
+// ── PWA install: suppress the automatic browser prompt, ───────
+// show our own "Install" button instead, and only prompt on click.
+var _deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault();                 // stop Chrome's automatic mini-infobar
+    _deferredInstallPrompt = e;         // save it so we can trigger it later
+    var btn = document.getElementById('pwa-install-btn');
+    if(btn) btn.style.display = '';     // reveal our own install icon
+});
+function installPwa(){
+    var btn = document.getElementById('pwa-install-btn');
+    if(_deferredInstallPrompt){
+        _deferredInstallPrompt.prompt();
+        _deferredInstallPrompt.userChoice.finally(function(){
+            _deferredInstallPrompt = null;
+            if(btn) btn.style.display = 'none';
+        });
+    } else if(/iphone|ipad|ipod/i.test(navigator.userAgent)){
+        // iOS Safari has no programmatic install API — guide the user instead
+        alert('To install: tap the Share icon, then "Add to Home Screen".');
+    }
+}
+window.addEventListener('appinstalled', function(){
+    var btn = document.getElementById('pwa-install-btn');
+    if(btn) btn.style.display = 'none';
+    _deferredInstallPrompt = null;
+});
 
 // ── Achievement overlay ───────────────────────────────────────
 var _achQueue = [];
