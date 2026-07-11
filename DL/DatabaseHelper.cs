@@ -1,5 +1,5 @@
 using System.Linq;
-using MySql.Data.MySqlClient;
+using MySqlConnector;
 using System.Data;
 namespace FitForge.DL
 {
@@ -19,7 +19,11 @@ namespace FitForge.DL
         public static DataTable Select(string sql, params MySqlParameter[] p){
             using var c=Conn(); using var cmd=new MySqlCommand(sql,c);
             foreach(var x in p)cmd.Parameters.Add(x);
-            using var a=new MySqlDataAdapter(cmd); var t=new DataTable(); a.Fill(t); return t;
+            c.Open();
+            using var reader = cmd.ExecuteReader();
+            var t = new DataTable();
+            t.Load(reader); // MySqlConnector doesn't ship a MySqlDataAdapter — load straight from the reader instead
+            return t;
         }
         public static MySqlParameter P(string n, object? v) => new MySqlParameter(n, v??DBNull.Value);
     }
