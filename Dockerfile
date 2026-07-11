@@ -18,6 +18,10 @@ COPY --from=build /app/publish .
 # Container listens on port 8080 (works well with Render/Railway/Fly.io)
 ENV ASPNETCORE_URLS=http://+:8080
 ENV ASPNETCORE_ENVIRONMENT=Production
+# .NET 8's Write-XOR-Execute JIT memory protection is known to trigger spurious
+# SIGSEGV crashes (exit code 139) on some virtualized cloud containers, including
+# Render. Disabling it trades a tiny amount of JIT hardening for actually starting up.
+ENV DOTNET_EnableWriteXorExecute=0
 EXPOSE 8080
 
 ENTRYPOINT ["dotnet", "FitForge.dll"]
