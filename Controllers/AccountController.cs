@@ -1,4 +1,5 @@
 using FitForge.BL; using FitForge.DL; using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 namespace FitForge.Controllers
 {
@@ -10,8 +11,8 @@ namespace FitForge.Controllers
         }
 
         [HttpPost,ValidateAntiForgeryToken]
-        public IActionResult Login(string username, string password){
-            var(ok,msg)=bl.Login(username,password);
+        public async Task<IActionResult> Login(string username, string password){
+            var(ok,msg)=await bl.Login(username,password);
             if(!ok){
                 TempData["LoginError"]=msg;
                 TempData["LoginUsername"]=username; // preserve username on error
@@ -21,9 +22,9 @@ namespace FitForge.Controllers
         }
 
         [HttpPost,ValidateAntiForgeryToken]
-        public IActionResult Register(string name, string username, string email, string password, string confirm,
+        public async Task<IActionResult> Register(string name, string username, string email, string password, string confirm,
             string dob, string gender, double weight, double height, string fitnessLevel){
-            var(ok,msg)=bl.Register(name,username,email,password,confirm,dob,gender,height,weight,fitnessLevel);
+            var(ok,msg)=await bl.Register(name,username,email,password,confirm,dob,gender,height,weight,fitnessLevel);
             if(!ok){
                 TempData["RegError"]=msg;
                 TempData["ShowReg"]=1;
