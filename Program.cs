@@ -4,6 +4,9 @@ var builder = WebApplication.CreateBuilder(args);
 string cs = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection missing");
 DB.Configure(cs);
+builder.Services.AddDataProtection().SetApplicationName("FitForge");
+builder.Services.Configure<Microsoft.AspNetCore.DataProtection.KeyManagement.KeyManagementOptions>(o =>
+    o.XmlRepository = new DbXmlRepository());
 builder.Services.AddControllersWithViews()
     .AddJsonOptions(o=>o.JsonSerializerOptions.PropertyNamingPolicy=System.Text.Json.JsonNamingPolicy.CamelCase);
 builder.Services.AddDistributedMemoryCache();
