@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>FitForge — No Connection</title>
+<link rel="stylesheet" href="/css/app.css" />
+<style>
+  body{display:flex;align-items:center;justify-content:center;min-height:100dvh;padding:24px;text-align:center}
+  .offline-mark{width:64px;height:64px;border-radius:16px;background:var(--neon);color:#00131a;
+    font-family:var(--font-head);font-weight:900;font-size:26px;display:flex;align-items:center;
+    justify-content:center;margin:0 auto 18px;box-shadow:0 0 30px rgba(0,229,255,.35)}
+  .offline-icon{width:44px;height:44px;margin:0 auto 16px;color:var(--muted)}
+  h1{font-family:var(--font-head);font-size:20px;letter-spacing:.04em;margin-bottom:8px}
+  p{color:var(--muted);font-size:14px;margin-bottom:22px;max-width:320px}
+  #retry-btn{background:var(--neon);color:#00131a;border:none;border-radius:var(--radius);
+    padding:12px 28px;font-family:var(--font-main);font-weight:700;font-size:14px;letter-spacing:.03em;
+    cursor:pointer}
+  #retry-btn:active{opacity:.85}
+  #retry-status{color:var(--muted);font-size:12px;margin-top:14px;min-height:16px}
+</style>
+</head>
+<body>
+  <div>
+    <div class="offline-mark">FF</div>
+    <svg class="offline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M12 18h.01M8.5 14.5a5 5 0 0 1 7 0M5.5 11.5a9 9 0 0 1 13 0M2.5 8.5a13 13 0 0 1 19 0" stroke-linecap="round"/>
+      <line x1="2" y1="2" x2="22" y2="22" stroke-linecap="round"/>
+    </svg>
+    <h1>No Internet Connection</h1>
+    <p>FitForge needs a connection to sync your workouts, water, and progress. Check your connection and try again.</p>
+    <button id="retry-btn" onclick="retry()">Try Again</button>
+    <div id="retry-status"></div>
+  </div>
+  <script>
+    function retry(){
+      var status = document.getElementById('retry-status');
+      status.textContent = 'Checking…';
+      fetch(location.href, { cache: 'no-store' })
+        .then(function(){ location.reload(); })
+        .catch(function(){ status.textContent = 'Still no connection.'; });
+    }
+    // Auto-retry once the browser tells us we're back online
+    window.addEventListener('online', retry);
+  </script>
+</body>
+</html>

@@ -1,9 +1,10 @@
-const CACHE = 'fitforge-v1';
+const CACHE = 'fitforge-v2';
 const STATIC = [
   '/',
   '/css/app.css',
   '/js/app.js',
-  '/manifest.json'
+  '/manifest.json',
+  '/offline.html'
 ];
 
 self.addEventListener('install', e => {
@@ -19,10 +20,13 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Navigation: network-first, fallback to cache
+  // Navigation: network-first. fetch() only rejects on a real connectivity
+  // failure (offline, DNS down, etc) — legitimate 404/500 responses from the
+  // server still resolve normally and are NOT caught here, so this only
+  // shows the offline page when there's genuinely no internet.
   if (e.request.mode === 'navigate') {
     e.respondWith(
-      fetch(e.request).catch(() => caches.match('/'))
+      fetch(e.request).catch(() => caches.match('/offline.html'))
     );
     return;
   }
@@ -33,7 +37,7 @@ self.addEventListener('fetch', e => {
         const clone = res.clone();
         caches.open(CACHE).then(c => c.put(e.request, clone));
         return res;
-      }))
+      }).catch(() => cached))
     );
     return;
   }
