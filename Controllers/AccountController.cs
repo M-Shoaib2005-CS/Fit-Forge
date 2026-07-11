@@ -1,4 +1,5 @@
 using FitForge.BL; using FitForge.DL; using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authentication.Cookies;
 namespace FitForge.Controllers
 {
     public class AccountController(UserBL bl, UserDL dl) : BaseController(dl)
@@ -36,6 +37,10 @@ namespace FitForge.Controllers
             return RedirectToAction("Index","Dashboard");
         }
 
-        public IActionResult Logout(){ HttpContext.Session.Clear(); return RedirectToAction("Login"); }
+        public async Task<IActionResult> Logout(){
+            HttpContext.Session.Clear();
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction("Login");
+        }
     }
 }
