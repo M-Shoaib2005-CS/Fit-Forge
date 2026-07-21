@@ -1,15 +1,21 @@
 @model FitForge.Models.DashboardVM
-@{ ViewData["Title"]="Dashboard"; ViewData["Page"]="Dashboard"; }
+@{
+  ViewData["Title"]="Dashboard"; ViewData["Page"]="Dashboard";
+  var firstName = Model.User.Name.Split(' ').FirstOrDefault() ?? Model.User.Name;
+  var todayDow = (int)DateTime.Now.DayOfWeek; // Sunday=0
+  var mondayOffset = todayDow == 0 ? -6 : 1 - todayDow;
+  var weekStart = DateTime.Today.AddDays(mondayOffset);
+  var weekLabels = new[]{"M","T","W","T","F","S","S"};
+}
 
-<div class="page-header">
+<div class="dash-topbar">
   <div>
-    <h1 class="page-title">@(DateTime.Now.Hour<12?"Morning":DateTime.Now.Hour<17?"Afternoon":"Evening") 👋</h1>
-    <p class="text-muted">@DateTime.Now.ToString("dddd, MMM d")</p>
+    <div class="eyebrow dash-greet-eyebrow">@DateTime.Now.ToString("dddd · MMM d").ToUpper()</div>
+    <div class="display dash-greet">@(DateTime.Now.Hour<12?"MORNING":DateTime.Now.Hour<17?"AFTERNOON":"EVENING"),<br/>@firstName.ToUpper()</div>
   </div>
-  <div class="header-actions">
-    <div class="stat-pill"><span>🔥</span> @Model.User.CurrentStreak</div>
-    <div class="stat-pill"><span>💪</span> @Model.TotalWorkouts</div>
-    @if(Model.User.BMI>0){<div class='stat-pill @(Model.User.BMICat=="Normal"?"":"text-warn")'>BMI @Model.User.BMI</div>}
+  <div class="dash-streakpill" data-tour="streak">
+    <svg class="dash-flame" viewBox="0 0 24 24" fill="var(--accent)"><path d="M12 2c1 3-3 4-3 7a3 3 0 0 0 6 0c0-1-1-2-1-3 2 1 4 4 4 7a6 6 0 0 1-12 0c0-4 2-6 4-9 .5-1 1-1.5 2-2z"/></svg>
+    <b>@Model.User.CurrentStreak</b>
   </div>
 </div>
 
@@ -19,126 +25,107 @@
 @if(Model.ActiveInjuries.Any()){
   <div class="alert alert-danger mb-2">
     🩹 @string.Join(", ", Model.ActiveInjuries.Select(i=>$"{i.BodyPart} ({i.Category})")) — exercises flagged.
-    <a asp-controller="Profile" asp-action="Index" style="color:var(--neon);margin-left:6px">Manage →</a>
+    <a asp-controller="Profile" asp-action="Index" style="color:var(--accent);margin-left:6px">Manage →</a>
   </div>
 }
 
 <div class="dashboard-grid">
 
-  <!-- ── TODAY'S WORKOUT ──────────────────────────────────── -->
-  <div class="card card-large">
-    <div class="card-header">
-      <div class="section-title">Today's Workout</div>
-      @if(Model.TodaySlot!=null&&!Model.TodaySlot.IsRest){
-        <span class="badge badge-neon">@Model.TodaySlot.ProgramName</span>
+  <div>
+    <!-- ── TODAY'S WORKOUT (hero) ─────────────────────────── -->
+    <div class="card dash-hero" data-tour="hero">
+      @if(!Model.HasSchedule){
+        <div class="empty-state">
+          <div class="empty-icon">📋</div>
+          <p>No schedule yet</p>
+          <a asp-controller="Programs" asp-action="Index" class="btn btn-solid mt-1">Build a Program →</a>
+        </div>
+      } else if(Model.IsRestDay){
+        <div class="rest-day-card">
+          <div class="rest-icon">😴</div>
+          <div class="rest-label">Rest Day</div>
+          <p class="text-muted" style="font-size:13px;margin-top:6px">Recovery is where gains happen.</p>
+          <div class="rest-tips">
+            <div class="rest-tip">🧘 10-min stretching</div>
+            <div class="rest-tip">💧 Stay hydrated</div>
+            <div class="rest-tip">😴 8h sleep target</div>
+            <div class="rest-tip">🚶 Light walk</div>
+          </div>
+        </div>
+      } else if(!Model.TodayExercises.Any()){
+        <div class="empty-state"><div class="empty-icon">✅</div><p>No exercises today</p></div>
+      } else {
+        <div class="dash-hero-top">
+          <div>
+            <div class="eyebrow">TODAY'S SESSION</div>
+            <div class="display dash-hero-title">@Model.TodayDay?.Name</div>
+          </div>
+          @if(Model.TodaySlot!=null){<span class="dash-tagchip">@Model.TodaySlot.ProgramName</span>}
+        </div>
+        <div class="dash-hero-sub">@Model.TodayExercises.Count exercises · @(Model.TodayExercises.Sum(e=>e.TargetSets)) total sets</div>
+
+        <div class="dash-chiplist">
+          @foreach(var ex in Model.TodayExercises.Take(3)){
+            <span class="@(ex.IsFlagged?"flagged":"")">@ex.ExerciseName @(ex.IsFlagged?"⚠️":"")</span>
+          }
+          @if(Model.TodayExercises.Count>3){<span>+@(Model.TodayExercises.Count-3) more</span>}
+        </div>
+
+        @if(Model.TodaySession!=null){
+          <div class="session-active-banner">
+            ⚡ Session active — @Model.TodaySession.StartedAt.ToString("HH:mm")
+          </div>
+          <a href="/Workouts/Active?sessionId=@Model.TodaySession.SessionId&dayId=@Model.TodaySession.DayId" class="btn btn-solid w-100">Continue →</a>
+        } else {
+          <button class="btn btn-solid w-100" onclick="startSession(@(Model.TodaySlot?.DayId??0))">▶ Start Session</button>
+        }
       }
     </div>
 
-    @if(!Model.HasSchedule){
-      <div class="empty-state">
-        <div class="empty-icon">📋</div>
-        <p>No schedule yet</p>
-        <a asp-controller="Programs" asp-action="Index" class="btn btn-solid mt-1">Build a Program →</a>
-      </div>
-    } else if(Model.IsRestDay){
-      <div class="rest-day-card">
-        <div class="rest-icon">😴</div>
-        <div class="rest-label">Rest Day</div>
-        <p class="text-muted" style="font-size:13px;margin-top:6px">Recovery is where gains happen.</p>
-        <div class="rest-tips">
-          <div class="rest-tip">🧘 10-min stretching</div>
-          <div class="rest-tip">💧 Stay hydrated</div>
-          <div class="rest-tip">😴 8h sleep target</div>
-          <div class="rest-tip">🚶 Light walk</div>
-        </div>
-      </div>
-    } else if(!Model.TodayExercises.Any()){
-      <div class="empty-state"><div class="empty-icon">✅</div><p>No exercises today</p></div>
-    } else {
-      @if(Model.TodaySession!=null){
-        <div class="session-active-banner">
-          ⚡ Session active — @Model.TodaySession.StartedAt.ToString("HH:mm")
-          <a href="/Workouts/Active?sessionId=@Model.TodaySession.SessionId&dayId=@Model.TodaySession.DayId" class="btn btn-sm btn-solid">Resume →</a>
-        </div>
-      }
-      <div class="exercise-preview-list">
-        @foreach(var ex in Model.TodayExercises){
-          <div class='exercise-preview @(ex.IsFlagged?"flagged":"")'>
-            <div class="ex-thumb" style="background:var(--bg3)">
-              <img src="/images/exercises/@(ex.ExerciseId).svg" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" style="width:100%;height:100%;object-fit:cover;border-radius:6px" loading="lazy"/>
-              <div class="ex-thumb-fallback" style="display:none">💪</div>
+    <div class="bento" data-tour="bento">
+      <div class="stat"><div class="num">@Model.TotalWorkouts</div><div class="lbl">Workouts</div></div>
+      <div class="stat"><div class="num">@((int)Model.AvgSessionMins)</div><div class="lbl">Avg Min</div></div>
+      <div class="stat"><div class="num">@Model.RecentPRs.Count</div><div class="lbl">PRs · 30d</div></div>
+    </div>
+
+    <div class="section-title mt-2">This Week</div>
+    <div class="card">
+      <div class="weekrow">
+        @for(int i=0;i<7;i++){
+          var day = weekStart.AddDays(i);
+          bool isToday = day.Date == DateTime.Today;
+          bool isDone = Model.RecentSessions.Any(s=>s.StartedAt.Date==day.Date);
+          bool isFuture = day.Date > DateTime.Today;
+          <div class="daydot">
+            <div class="dot @(isDone?"done":"") @(isToday?"today":"")">
+              @if(isDone){<svg viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke="var(--accent-ink)" stroke-width="3" stroke-linecap="round"/></svg>}
             </div>
-            <div class="ex-info">
-              <div class="ex-name">@ex.ExerciseName @if(ex.IsFlagged){<span class="badge badge-danger">⚠️</span>}</div>
-              <div class="ex-meta text-muted">
-                @ex.TargetSets × @if(ex.TrackDuration){<span>@ex.TargetReps s</span>}else{<span>@ex.TargetReps reps</span>}
-                @if(ex.TargetWeight.HasValue){<span> @@ @(ex.TargetWeight)kg</span>}
-              </div>
-              @if(ex.IsFlagged&&!string.IsNullOrEmpty(ex.AlternativeName)){
-                <div class="text-muted" style="font-size:12px">💡 Alt: @ex.AlternativeName</div>
-              }
-            </div>
-            <div class="ex-rest text-muted">@ex.RestSeconds s</div>
+            <div class="lbl">@weekLabels[i]</div>
           </div>
         }
       </div>
-      @if(Model.TodaySession==null){
-        <button class="btn btn-solid w-100 mt-2" onclick="startSession(@(Model.TodaySlot?.DayId??0))">▶ Start Workout</button>
-      } else {
-        <a href="/Workouts/Active?sessionId=@Model.TodaySession.SessionId&dayId=@Model.TodaySession.DayId" class="btn btn-solid w-100 mt-2">Continue →</a>
-      }
-    }
+    </div>
   </div>
 
   <!-- ── STATS COL ─────────────────────────────────────────── -->
   <div class="stats-col">
 
     <!-- Water tracker -->
-    <div class="card water-card">
+    <div class="card water-card" data-tour="water">
       <div class="card-header">
         <div class="section-title">💧 Hydration</div>
         <button class="btn-icon" onclick="openWaterModal()" title="Log water">+</button>
       </div>
-      <div class="water-track">
-        <div class="water-bar-wrap">
-          <div class="water-bar-fill" id="water-fill" style="width:@Model.Water.Percent%"></div>
-        </div>
-        <div class="water-info">
-          <span class="water-ml" id="water-ml">@Model.Water.TotalMl ml</span>
-          <span class="text-muted">/ <span id="water-goal">@Model.Water.GoalMl</span> ml</span>
-        </div>
+      <div class="dash-water-head" id="water-ml">@Model.Water.TotalMl ml</div>
+      <div class="dash-water-goal">of <span id="water-goal">@Model.Water.GoalMl</span> ml goal</div>
+      <div class="water-track mt-1">
+        <div class="water-bar-wrap"><div class="water-bar-fill" id="water-fill" style="width:@Model.Water.Percent%"></div></div>
       </div>
-      <div class="water-quick-btns">
-        <button class="water-btn" onclick="logWater(150)">☕ 150</button>
-        <button class="water-btn" onclick="logWater(250)">🥤 250</button>
-        <button class="water-btn" onclick="logWater(500)">🍶 500</button>
-        <button class="water-btn" onclick="openWaterModal()">⚙️</button>
+      <div class="water-pillrow">
+        <button class="water-btn" onclick="logWater(150)">☕ +150</button>
+        <button class="water-btn" onclick="logWater(250)">🥤 +250</button>
+        <button class="water-btn" onclick="logWater(500)">🍶 +500</button>
       </div>
-    </div>
-
-    <!-- Quick stats -->
-    <div class="card">
-      <div class="section-title">Activity</div>
-      <div class="activity-stats">
-        <div class="activity-stat">
-          <div class="activity-val text-neon">@Model.AvgSessionMins</div>
-          <div class="text-muted">avg min/session</div>
-        </div>
-        <div class="activity-stat">
-          <div class="activity-val">@Model.TotalWorkouts</div>
-          <div class="text-muted">total workouts</div>
-        </div>
-      </div>
-      @if(Model.RecentSessions.Any()){
-        <div class="recent-sessions mt-1">
-          @foreach(var s in Model.RecentSessions.Take(3)){
-            <div class="recent-session-row">
-              <span>@s.DayName</span>
-              <span class="text-muted">@s.StartedAt.ToString("MMM d")</span>
-            </div>
-          }
-        </div>
-      }
     </div>
 
     <!-- Streak -->
@@ -151,20 +138,13 @@
       </div>
     </div>
 
-    <!-- Recent PRs -->
-    @if(Model.RecentPRs.Any()){
+    @if(Model.User.BMI>0){
     <div class="card">
-      <div class="section-title">Recent PRs 🏆</div>
-      @foreach(var pr in Model.RecentPRs.Take(3)){
-        <div class="pr-row">
-          <div class="pr-ex">@pr.ExerciseName</div>
-          <div class="pr-val text-neon">
-            @if(pr.RecordType=="max_weight"){<span>@pr.WeightKg kg</span>}
-            else if(pr.RecordType=="max_volume"){<span>@pr.Value kg vol</span>}
-            else{<span>@((int)pr.Value) reps</span>}
-          </div>
-        </div>
-      }
+      <div class="section-title">Body</div>
+      <div class="profile-stat-grid" style="grid-template-columns:1fr 1fr">
+        <div class="profile-stat"><div class="profile-stat-val">@Model.User.BMI</div><div class="profile-stat-lbl">BMI</div></div>
+        <div class="profile-stat"><div class="profile-stat-val" style="font-size:14px">@Model.User.BMICat</div><div class="profile-stat-lbl">Category</div></div>
+      </div>
     </div>
     }
 
@@ -258,7 +238,7 @@ function updateWater(d){
   document.getElementById('water-fill').style.width=d.percent+'%';
   if(d.goalMl) document.getElementById('water-goal').textContent=d.goalMl;
   showToast('💧 Water updated!','success');
-  if(d.percent>=100) showToast('🎉 Water goal hit!','success');
+  if(d.percent>=100){ showToast('🎉 Water goal hit!','success'); if(typeof ffConfetti==='function') ffConfetti(); }
 }
 function setWaterGoal(){
   var goal=parseInt(document.getElementById('water-goal-input').value)||2500;
@@ -288,5 +268,26 @@ var _pendingAch = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
     Model.NewAchievements.Select(a => new { a.Icon, a.Name, a.Rarity }),
     new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }));
 if(_pendingAch.length > 0){ setTimeout(()=>showAchievements(_pendingAch), 800); }
+
+// ── First-run onboarding tour ──────────────────────────────
+// Auto-shows only for genuinely new accounts (zero logged workouts, checked
+// server-side) — not just "never seen it in this browser". Manual replay via
+// Profile > Settings always works regardless, using the ?tour=1 flag.
+var FF_UID = @Model.User.UserId;
+var isNewAccount = @System.Text.Json.JsonSerializer.Serialize(Model.TotalWorkouts == 0);
+var forceTour = new URLSearchParams(location.search).get('tour') === '1';
+if((forceTour || (isNewAccount && !FFTour.hasSeen(FF_UID))) && _pendingAch.length === 0){
+  setTimeout(function(){
+    FFTour.start([
+      { selector: '[data-tour="streak"]', title: '🔥 Your Streak', text: "This tracks consecutive training days. Miss too many in a row and it resets — so try to keep it alive!" },
+      { selector: '[data-tour="hero"]',   title: "Today's Session", text: 'Your scheduled workout shows up here every day. Tap Start Session to begin logging sets.' },
+      { selector: '[data-tour="bento"]',  title: 'Your Stats', text: 'Total workouts, average session length, and recent PRs — your progress at a glance.' },
+      { selector: '[data-tour="water"]',  title: '💧 Hydration', text: 'Log water in one tap. Hit your daily goal for a little celebration.' },
+      { selector: '[data-tour="nav"]',    title: 'Get Around', text: 'Home, Log, Skills, and Profile are always one tap away down here.' },
+      { selector: null, title: "You're Ready!", text: "That's everything. Go build a program, or jump straight into today's session. Let's train. 💪" }
+    ], FF_UID);
+  }, 700);
+}
 </script>
+
 }

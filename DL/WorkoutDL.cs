@@ -31,9 +31,8 @@ namespace FitForge.DL
     public class WorkoutDL(ILogger<WorkoutDL> log)
     {
         public int StartSession(int uid, int dayId){
-            DB.NonQuery("INSERT INTO workout_sessions(user_id,day_id) VALUES(@u,@d)",
+            int sid=(int)DB.InsertGetId("INSERT INTO workout_sessions(user_id,day_id) VALUES(@u,@d)",
                 DB.P("@u",uid),DB.P("@d",dayId));
-            int sid=Convert.ToInt32(DB.Scalar("SELECT LAST_INSERT_ID()"));
             log.LogInformation("Session started uid:{U} day:{D} sid:{S}",uid,dayId,sid);
             return sid;
         }
@@ -51,6 +50,22 @@ namespace FitForge.DL
                 DB.P("@sid",sid),DB.P("@eid",eid),DB.P("@pde",pdeId),DB.P("@sn",setNum),
                 DB.P("@tr",targetReps),DB.P("@ar",actualReps),DB.P("@w",weightKg),
                 DB.P("@rpe",rpe),DB.P("@sk",skipped?1:0));
+        }
+
+        // Most recent non-skipped set for an exercise, across any past session —
+        // shown as "last time" context when logging a new set.
+        public (int? reps, double? weightKg, DateTime? date) GetLastSet(int uid, int exerciseId){
+            var dt = DB.Select(@"SELECT ws.actual_reps, ws.weight_kg, ws.logged_at
+                FROM workout_sets ws
+                JOIN workout_sessions s ON ws.session_id = s.session_id
+                WHERE s.user_id=@u AND ws.exercise_id=@e AND ws.was_skipped=0 AND ws.actual_reps>0
+                ORDER BY ws.logged_at DESC LIMIT 1",
+                DB.P("@u",uid), DB.P("@e",exerciseId));
+            if(dt.Rows.Count==0) return (null,null,null);
+            var r=dt.Rows[0];
+            return (Convert.ToInt32(r["actual_reps"]),
+                    r["weight_kg"]!=DBNull.Value?Convert.ToDouble(r["weight_kg"]):null,
+                    Convert.ToDateTime(r["logged_at"]));
         }
 
         public List<SessionModel> GetHistory(int uid, int limit=50)=>

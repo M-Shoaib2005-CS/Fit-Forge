@@ -81,6 +81,7 @@ namespace FitForge.BL
             {
                 targets.TryGetValue(ex.PdeId, out var t);
                 flags.TryGetValue(ex.ExerciseId, out var flag);
+                var last = wDL.GetLastSet(uid, ex.ExerciseId);
                 return new ActiveSessionExerciseModel
                 {
                     PdeId           = ex.PdeId,
@@ -96,7 +97,10 @@ namespace FitForge.BL
                     IsFlagged       = flag != null,
                     FlagReason      = flag?.Reason ?? "",
                     AlternativeId   = flag?.AlternativeId,
-                    AlternativeName = flag?.AlternativeName ?? ""
+                    AlternativeName = flag?.AlternativeName ?? "",
+                    LastReps        = last.reps,
+                    LastWeightKg    = last.weightKg,
+                    LastDate        = last.date
                 };
             }).ToList();
         }

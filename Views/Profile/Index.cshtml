@@ -1,13 +1,17 @@
 @model FitForge.Models.ProfileVM
 @{ ViewData["Title"]="Profile"; }
 
-<div class="page-header">
-  <div>
-    <div class="avatar-circle">@Model.User.Initials</div>
-  </div>
-  <div>
-    <h1 class="page-title" style="margin:0">@Model.User.Name</h1>
-    <p class="text-muted">@@Model.User.Username · @Model.User.FitnessLevel</p>
+<div class="card dash-hero mb-2">
+  <div style="display:flex; align-items:center; gap:16px; position:relative;">
+    <div class="avatar-circle" style="width:64px;height:64px;font-size:24px;">@Model.User.Initials</div>
+    <div style="flex:1;min-width:0;">
+      <div class="eyebrow">@Model.User.FitnessLevel.ToUpper() · @@@Model.User.Username</div>
+      <div class="display" style="font-size:26px;margin-top:2px;">@Model.User.Name.ToUpper()</div>
+    </div>
+    <div class="dash-streakpill">
+      <svg class="dash-flame" viewBox="0 0 24 24" fill="var(--accent)"><path d="M12 2c1 3-3 4-3 7a3 3 0 0 0 6 0c0-1-1-2-1-3 2 1 4 4 4 7a6 6 0 0 1-12 0c0-4 2-6 4-9 .5-1 1-1.5 2-2z"/></svg>
+      <b>@Model.User.CurrentStreak</b>
+    </div>
   </div>
 </div>
 
@@ -66,20 +70,117 @@
   <!-- Top PRs -->
   @if(Model.TopPRs.Any()){
   <div class="card mt-2">
-    <div class="section-title">Personal Records 🏆</div>
-    @foreach(var pr in Model.TopPRs){
-      <div class="pr-row">
-        <div class="pr-ex">@pr.ExerciseName <span class="text-muted" style="font-size:11px">@pr.RecordType.Replace("_"," ")</span></div>
-        <div class="pr-val text-neon">
-          @if(pr.RecordType=="max_weight"){<span>@pr.WeightKg kg</span>}
-          else if(pr.RecordType=="max_volume"){<span>@Math.Round(pr.Value,1) kg</span>}
-          else{<span>@((int)pr.Value) reps</span>}
-        </div>
-        <div class="text-muted" style="font-size:11px">@pr.AchievedAt.ToString("MMM d")</div>
-      </div>
-    }
+    <div class="pr-controls">
+      <div class="section-title" style="margin-bottom:0">Personal Records 🏆</div>
+      <select id="pr-sort" class="pr-sort-select" onchange="renderPRs()">
+        <option value="recent">Most recent</option>
+        <option value="weight-desc">Weight: high to low</option>
+        <option value="weight-asc">Weight: low to high</option>
+        <option value="reps-desc">Reps: high to low</option>
+        <option value="reps-asc">Reps: low to high</option>
+        <option value="volume-desc">Volume: high to low</option>
+        <option value="volume-asc">Volume: low to high</option>
+      </select>
+    </div>
+    <div id="pr-list"></div>
+    <button class="btn btn-sm w-100 mt-1" id="pr-toggle-btn" onclick="togglePRs()"></button>
   </div>
   }
+
+  <!-- Exercise progress modal -->
+  <div class="modal-backdrop" id="pr-chart-modal" style="display:none" onclick="if(event.target===this)closePRChart()">
+    <div class="modal">
+      <div class="modal-header"><span id="pr-chart-title">Progress</span><button class="modal-close" onclick="closePRChart()">✕</button></div>
+      <div class="modal-body">
+        <canvas id="pr-chart-canvas" height="220"></canvas>
+        <div id="pr-chart-loading" class="text-muted" style="text-align:center;padding:20px">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const prData = [
+      @foreach(var pr in Model.TopPRs){
+        <text>{
+          exerciseId: @pr.ExerciseId,
+          exerciseName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(pr.ExerciseName)),
+          recordType: "@pr.RecordType",
+          value: @pr.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+          weightKg: @(pr.WeightKg?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null"),
+          date: "@pr.AchievedAt.ToString("yyyy-MM-dd")",
+          dateLabel: "@pr.AchievedAt.ToString("MMM d")"
+        },
+      </text>
+      }
+    ];
+    let prExpanded = false;
+    const PR_VISIBLE = 4;
+
+    function prVolume(p){ return (p.weightKg||0) * (p.recordType==="max_reps" ? p.value : 1); }
+    function sortPRList(mode){
+      const arr = [...prData];
+      if(mode==="recent") return arr.sort((a,b)=> new Date(b.date)-new Date(a.date));
+      const [key,dir] = mode.split("-");
+      const val = p => key==="volume" ? prVolume(p) : key==="weight" ? (p.weightKg||0) : p.value;
+      arr.sort((a,b)=> dir==="asc" ? val(a)-val(b) : val(b)-val(a));
+      return arr;
+    }
+    function prValueLabel(p){
+      if(p.recordType==="max_weight") return p.weightKg + " kg";
+      if(p.recordType==="max_volume") return Math.round(p.value*10)/10 + " kg vol";
+      return Math.round(p.value) + " reps";
+    }
+    function renderPRs(){
+      const mode = document.getElementById("pr-sort").value;
+      const sorted = sortPRList(mode);
+      const visible = prExpanded ? sorted : sorted.slice(0, PR_VISIBLE);
+      document.getElementById("pr-list").innerHTML = visible.map(p => `
+        <div class="pr-row" style="cursor:pointer" onclick='openPRChart(${p.exerciseId}, ${JSON.stringify(p.exerciseName)})'>
+          <div class="pr-ex">${p.exerciseName} <span class="text-muted" style="font-size:11px">${p.recordType.replace("_"," ")}</span></div>
+          <div class="pr-val text-neon">${prValueLabel(p)}</div>
+          <div class="text-muted" style="font-size:11px">${p.dateLabel}</div>
+        </div>`).join("");
+      const btn = document.getElementById("pr-toggle-btn");
+      if(sorted.length > PR_VISIBLE){
+        btn.style.display = "";
+        btn.textContent = prExpanded ? "Show Less" : `Show More (${sorted.length - PR_VISIBLE} more)`;
+      } else { btn.style.display = "none"; }
+    }
+    function togglePRs(){ prExpanded = !prExpanded; renderPRs(); }
+    renderPRs();
+
+    let prChart = null;
+    function openPRChart(exerciseId, exerciseName){
+      document.getElementById("pr-chart-modal").style.display = "flex";
+      document.getElementById("pr-chart-title").textContent = exerciseName + " — Progress";
+      document.getElementById("pr-chart-loading").style.display = "block";
+      document.getElementById("pr-chart-canvas").style.display = "none";
+      fetch(`/Profile/ExercisePRHistory?exerciseId=${exerciseId}`)
+        .then(r=>r.json())
+        .then(res=>{
+          document.getElementById("pr-chart-loading").style.display = "none";
+          document.getElementById("pr-chart-canvas").style.display = "block";
+          const h = res.history || [];
+          const labels = h.map(x=>x.label);
+          const weights = h.map(x=> x.weightKg ?? x.value);
+          if(prChart) prChart.destroy();
+          const ctx = document.getElementById("pr-chart-canvas").getContext("2d");
+          prChart = new Chart(ctx, {
+            type: "line",
+            data: { labels, datasets: [{
+              label: exerciseName,
+              data: weights,
+              borderColor: "#ff5a2b",
+              backgroundColor: "rgba(255,90,43,.14)",
+              tension: .3, fill: true, pointRadius: 3
+            }]},
+            options: { plugins:{legend:{display:false}}, scales:{ x:{ grid:{color:"rgba(255,255,255,.05)"}}, y:{ grid:{color:"rgba(255,255,255,.05)"}} } }
+          });
+        })
+        .catch(()=>{ document.getElementById("pr-chart-loading").textContent = "Couldn't load progress data."; });
+    }
+    function closePRChart(){ document.getElementById("pr-chart-modal").style.display = "none"; }
+  </script>
 
   <!-- Injuries -->
   <div class="card mt-2">
@@ -181,6 +282,15 @@
 <!-- ── ACHIEVEMENTS & BADGES ─────────────────────────────── -->
 <div id="tab-achievements" style="display:none">
   @{ var unlocked = Model.Achievements.Count(a=>a.IsUnlocked); }
+
+  <!-- Journey banner -->
+  <div class="card mb-2 journey-card">
+    <div class="section-title" style="margin-bottom:2px">Your Journey</div>
+    <div class="journey-title">@Model.JourneyTitle</div>
+    <div class="journey-points text-muted">@Model.TotalPoints pts @(Model.JourneyProgressPct<100 ? $"· {Model.JourneyNextAt - Model.TotalPoints} to next rank" : "· Max rank reached")</div>
+    <div class="ach-overall-bar mt-1"><div class="ach-overall-fill" style="width:@Model.JourneyProgressPct%"></div></div>
+  </div>
+
   <div class="ach-progress-bar-wrap card mb-2">
     <div class="section-title">@unlocked / @Model.Achievements.Count Unlocked</div>
     <div class="ach-overall-bar"><div class="ach-overall-fill" style="width:@(Model.Achievements.Any()?unlocked*100/Model.Achievements.Count:0)%"></div></div>
@@ -190,7 +300,8 @@
     <div class="section-title mt-2 mb-1" style="text-transform:capitalize">@cat.Key</div>
     <div class="ach-grid">
       @foreach(var a in cat){
-        <div class='ach-tile @(a.IsUnlocked?"ach-unlocked":"ach-locked")' title="@a.Description">
+        <div class='ach-tile @(a.IsUnlocked?"ach-unlocked":"ach-locked")'
+             onclick='openBadgeInfo(@Html.Raw(System.Text.Json.JsonSerializer.Serialize(a.Name)), @Html.Raw(System.Text.Json.JsonSerializer.Serialize(a.IsUnlocked?a.Description:"Locked — keep going to unlock this one.")), @a.Points, @Html.Raw(System.Text.Json.JsonSerializer.Serialize(a.IsUnlocked?a.Icon:"🔒")))'>
           <div class="ach-tile-icon">@(a.IsUnlocked?a.Icon:"🔒")</div>
           <div class="ach-tile-name">@a.Name</div>
           <div class='ach-tile-rarity ach-rarity--@a.Rarity'>@a.Rarity.ToUpper()</div>
@@ -206,7 +317,8 @@
     <div class="section-title mt-3 mb-1">Exercise Badges</div>
     <div class="badges-page-grid">
       @foreach(var b in Model.Badges){
-        <div class="badge-card badge-card--@b.Tier">
+        <div class="badge-card badge-card--@b.Tier"
+             onclick='openBadgeInfo(@Html.Raw(System.Text.Json.JsonSerializer.Serialize(b.ExerciseName)), @Html.Raw(System.Text.Json.JsonSerializer.Serialize(b.Tier.ToUpper()+" tier — earned from "+b.SessionCount+" logged sessions of this exercise.")), @b.Points, @Html.Raw(System.Text.Json.JsonSerializer.Serialize(b.Tier=="legend"?"⚡":b.Tier=="diamond"?"💎":b.Tier=="gold"?"🥇":b.Tier=="silver"?"🥈":"🥉")))'>
           <div class="badge-card-icon">@(b.Tier=="legend"?"⚡":b.Tier=="diamond"?"💎":b.Tier=="gold"?"🥇":b.Tier=="silver"?"🥈":"🥉")</div>
           <div class="badge-card-name">@b.ExerciseName</div>
           <div class="badge-card-tier">@b.Tier.ToUpper()</div>
@@ -221,6 +333,29 @@
   }
 </div>
 
+<!-- Badge / achievement info modal -->
+<div class="modal-backdrop" id="badge-info-modal" style="display:none" onclick="if(event.target===this)closeBadgeInfo()">
+  <div class="modal">
+    <div class="modal-header"><span id="badge-info-title">Badge</span><button class="modal-close" onclick="closeBadgeInfo()">✕</button></div>
+    <div class="modal-body" style="text-align:center;padding:20px">
+      <div id="badge-info-icon" style="font-size:40px;margin-bottom:10px"></div>
+      <div id="badge-info-desc" class="text-muted" style="margin-bottom:14px"></div>
+      <div id="badge-info-points" class="text-neon" style="font-weight:800;font-size:18px"></div>
+    </div>
+  </div>
+</div>
+<script>
+  function openBadgeInfo(name, desc, points, icon){
+    document.getElementById("badge-info-modal").style.display = "flex";
+    document.getElementById("badge-info-title").textContent = name;
+    document.getElementById("badge-info-desc").textContent = desc;
+    document.getElementById("badge-info-icon").textContent = icon;
+    document.getElementById("badge-info-points").textContent = points > 0 ? ("+" + points + " points") : "Locked";
+  }
+  function closeBadgeInfo(){ document.getElementById("badge-info-modal").style.display = "none"; }
+</script>
+
+
 <!-- ── SETTINGS ──────────────────────────────────────────── -->
 <div id="tab-settings" style="display:none">
   <div class="card mb-2">
@@ -228,6 +363,31 @@
     <div class="theme-toggle-row">
       <button class='btn @(Model.User.Theme=="dark"?"btn-solid":"btn-outline")' onclick="setTheme('dark')">🌙 Dark</button>
       <button class='btn @(Model.User.Theme=="light"?"btn-solid":"btn-outline")' onclick="setTheme('light')">☀️ Light</button>
+    </div>
+  </div>
+
+  <div class="card mb-2">
+    <div class="card mb-2">
+    <div class="section-title">Need a refresher?</div>
+    <p class="text-muted mb-1" style="font-size:12.5px">Replay the guided walkthrough from the Dashboard.</p>
+    <a href="/Dashboard/Index?tour=1" class="btn btn-outline w-100">🔁 Replay Tutorial</a>
+  </div>
+
+  <div class="section-title">App Accent</div>
+    <p class="text-muted mb-1" style="font-size:12.5px">Pick your color — live preview, applies everywhere.</p>
+    <div class="accent-row">
+      <div class="accent-swatch" data-accent="orange" onclick="applyAccent('orange')" style="background:#ff5a2b;">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke="#1a0e08" stroke-width="3" stroke-linecap="round"/></svg>
+      </div>
+      <div class="accent-swatch" data-accent="lime" onclick="applyAccent('lime')" style="background:#d7f24c;">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke="#1a0e08" stroke-width="3" stroke-linecap="round"/></svg>
+      </div>
+      <div class="accent-swatch" data-accent="pink" onclick="applyAccent('pink')" style="background:#ff3d7a;">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke="#1a0e08" stroke-width="3" stroke-linecap="round"/></svg>
+      </div>
+      <div class="accent-swatch" data-accent="blue" onclick="applyAccent('blue')" style="background:#4ea6ff;">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke="#1a0e08" stroke-width="3" stroke-linecap="round"/></svg>
+      </div>
     </div>
   </div>
 
@@ -300,11 +460,11 @@ var wData=@Html.Raw(System.Text.Json.JsonSerializer.Serialize(
     Model.WeightHistory.OrderBy(w=>w.RecordedAt).Select(w=>w.WeightKg)));
 var ctx=document.getElementById('weight-chart');
 if(ctx && wLabels.length > 1){new Chart(ctx,{type:'line',data:{labels:wLabels,datasets:[{
-  data:wData,borderColor:'#00e5ff',backgroundColor:'rgba(0,229,255,0.08)',
-  borderWidth:2,pointRadius:3,pointBackgroundColor:'#00e5ff',tension:0.4,fill:true}]},
+  data:wData,borderColor:'#ff5a2b',backgroundColor:'rgba(255,90,43,0.10)',
+  borderWidth:2,pointRadius:3,pointBackgroundColor:'#d7f24c',tension:0.4,fill:true}]},
   options:{plugins:{legend:{display:false}},scales:{
-    x:{ticks:{color:'#8b949e',maxTicksLimit:6},grid:{color:'#21262d'}},
-    y:{ticks:{color:'#8b949e'},grid:{color:'#21262d'}}
+    x:{ticks:{color:'#8b8d93',maxTicksLimit:6},grid:{color:'#38393e'}},
+    y:{ticks:{color:'#8b8d93'},grid:{color:'#38393e'}}
   }}});}
 
 // ── Theme ──────────────────────────────────────────────────────

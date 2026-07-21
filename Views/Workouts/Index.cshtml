@@ -2,24 +2,41 @@
 @{ ViewData["Title"]="Workouts"; }
 
 <div class="page-header">
-  <h1 class="page-title">Workouts</h1>
+  <div><div class="eyebrow">TRAINING LOG</div><h1 class="page-title">Workouts</h1></div>
 </div>
 
 <!-- ── TABS ────────────────────────────────────────────────── -->
 <div class="tab-bar mb-2">
-  <button class="tab-pill active" onclick="switchTab('history',this)">History</button>
-  <button class="tab-pill"        onclick="switchTab('calendar',this)">Calendar</button>
+  <button class="tab-pill active" onclick="switchTab('history',this)">Calendar</button>
   <button class="tab-pill"        onclick="switchTab('prs',this)">PRs</button>
   <button class="tab-pill"        onclick="switchTab('badges',this)">Badges</button>
 </div>
 
-<!-- ── HISTORY ──────────────────────────────────────────────── -->
+<!-- ── CALENDAR + HISTORY (combined) ──────────────────────────── -->
 <div id="tab-history">
+  <div class="cal-header">
+    <button class="btn-icon cal-nav" onclick="calNav(-1)">‹</button>
+    <span class="cal-month-label" id="cal-label"></span>
+    <button class="btn-icon cal-nav" onclick="calNav(1)">›</button>
+  </div>
+  <div class="eyebrow mb-1">CONSISTENCY</div>
+  <div class="cal-weekdays">
+    @foreach(var d in new[]{"M","T","W","T","F","S","S"}){<div class="cal-wd">@d</div>}
+  </div>
+  <div class="cal-grid" id="cal-grid"><div class="cal-loading">Loading…</div></div>
+  <div class="cal-legend">
+    <span><i class="dot done"></i> Trained</span>
+    <span><i class="dot rest"></i> Rest</span>
+    <span><i class="dot today"></i> Today</span>
+  </div>
+
+  <div class="section-title mt-3 mb-1">Recent Sessions</div>
   @if(!Model.History.Any()){
     <div class="empty-state"><div class="empty-icon">🏋️</div><p>No sessions yet. Start your first workout!</p></div>
   } else {
-    @foreach(var s in Model.History){
-      <div class="session-card" onclick="openSession(@s.SessionId)">
+    @for(int i=0; i<Model.History.Count; i++){
+      var s = Model.History[i];
+      <div class="session-card @(i>=3?"session-row-extra":"")" style="@(i>=3?"display:none":"")" onclick="openSession(@s.SessionId)">
         <div class="session-card-left">
           <div class="session-date">@s.StartedAt.ToString("MMM d")</div>
           <div class="session-time text-muted">@s.StartedAt.ToString("HH:mm")</div>
@@ -34,20 +51,10 @@
         </div>
       </div>
     }
+    @if(Model.History.Count > 3){
+      <button class="btn btn-sm w-100 mt-1" id="session-toggle-btn" onclick="toggleSessions()">Show More (@(Model.History.Count - 3) more)</button>
+    }
   }
-</div>
-
-<!-- ── CALENDAR ─────────────────────────────────────────────── -->
-<div id="tab-calendar" style="display:none">
-  <div class="cal-header">
-    <button class="btn-icon cal-nav" onclick="calNav(-1)">‹</button>
-    <span class="cal-month-label" id="cal-label"></span>
-    <button class="btn-icon cal-nav" onclick="calNav(1)">›</button>
-  </div>
-  <div class="cal-weekdays">
-    @foreach(var d in new[]{"M","T","W","T","F","S","S"}){<div class="cal-wd">@d</div>}
-  </div>
-  <div class="cal-grid" id="cal-grid"><div class="cal-loading">Loading…</div></div>
 </div>
 
 <!-- ── PRs ─────────────────────────────────────────────────── -->
@@ -123,13 +130,23 @@ function switchTab(id, btn){
   document.getElementById('tab-'+id).style.display='';
   document.querySelectorAll('.tab-pill').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  if(id==='calendar' && !_calLoaded){ _calLoaded=true; loadCal(_calY, _calM); }
+}
+
+// ── SESSIONS SHOW MORE ──────────────────────────────────────────
+function toggleSessions(){
+  var rows = document.querySelectorAll('.session-row-extra');
+  var btn  = document.getElementById('session-toggle-btn');
+  var expanded = btn.getAttribute('data-expanded') === '1';
+  rows.forEach(r => r.style.display = expanded ? 'none' : '');
+  btn.setAttribute('data-expanded', expanded ? '0' : '1');
+  btn.textContent = expanded ? 'Show More (' + rows.length + ' more)' : 'Show Less';
 }
 
 // ── CALENDAR ─────────────────────────────────────────────────
-var _calLoaded=false, _calY=new Date().getFullYear(), _calM=new Date().getMonth()+1;
+var _calY=new Date().getFullYear(), _calM=new Date().getMonth()+1;
 var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 function calNav(dir){ _calM+=dir; if(_calM>12){_calM=1;_calY++;} if(_calM<1){_calM=12;_calY--;} loadCal(_calY,_calM); }
+loadCal(_calY, _calM); // load immediately — calendar now lives on the default visible tab
 function loadCal(y,m){
   document.getElementById('cal-label').textContent=MONTHS[m-1]+' '+y;
   document.getElementById('cal-grid').innerHTML='<div class="cal-loading">Loading…</div>';
@@ -154,11 +171,31 @@ function renderCal(days, y, m){
     if(d.hasWorkout && d.isCompleted) cls+=' cal-done';
     else if(d.hasWorkout) cls+=' cal-started';
     cell.className=cls;
-    cell.textContent=new Date(d.date).getDate();
+
+    var numSpan=document.createElement('span');
+    numSpan.textContent=new Date(d.date).getDate();
+    cell.appendChild(numSpan);
+
     if(d.sessionId) cell.onclick=()=>openSession(d.sessionId);
-    if(d.hasWorkout){
-      var dot=document.createElement('div'); dot.className='cal-dot'; cell.appendChild(dot);
+
+    // Water / weight markers
+    if(d.hasWater || d.hasWeight){
+      var marks=document.createElement('div'); marks.className='cal-marks';
+      if(d.hasWater)  { var wm=document.createElement('span'); wm.className='cal-mark-water';  wm.textContent='💧'; marks.appendChild(wm); }
+      if(d.hasWeight) { var gm=document.createElement('span'); gm.className='cal-mark-weight'; gm.textContent='⚖️'; marks.appendChild(gm); }
+      cell.appendChild(marks);
     }
+
+    // Tooltip with details for the day
+    var tipParts=[];
+    if(d.hasWater)  tipParts.push('💧 '+d.waterMl+'ml'+(d.waterGoalMl?(' / '+d.waterGoalMl+'ml'):''));
+    if(d.hasWeight) tipParts.push('⚖️ '+d.weightKg+'kg');
+    if(d.hasWorkout) tipParts.push(d.isCompleted ? '🏋️ Workout done ('+d.setCount+' sets)' : '🏋️ Workout started');
+    if(tipParts.length){
+      var tip=document.createElement('div'); tip.className='cal-day-tip'; tip.textContent=tipParts.join(' · ');
+      cell.appendChild(tip);
+    }
+
     grid.appendChild(cell);
   });
 }

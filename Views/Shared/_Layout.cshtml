@@ -11,17 +11,18 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="theme-color" content="#00e5ff" />
+    <meta name="theme-color" content="#ff5a2b" />
     <title>@ViewData["Title"] — FitForge</title>
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght%40400;700;900&family=Rajdhani:wght%40400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
     @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
 <div class="shell">
-    <nav class="sidebar" role="navigation" aria-label="Main navigation">
+    <nav class="sidebar" role="navigation" aria-label="Main navigation" data-tour="nav">
         <div class="logo">FF</div>
         <a asp-controller="Dashboard" asp-action="Index"  class='nav-item @(page=="Dashboard"?"active":"")'  aria-label="Dashboard">
             <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>

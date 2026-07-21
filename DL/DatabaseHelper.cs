@@ -16,6 +16,18 @@ namespace FitForge.DL
             using var c=Conn(); using var cmd=new MySqlCommand(sql,c);
             foreach(var x in p)cmd.Parameters.Add(x); c.Open(); return cmd.ExecuteScalar();
         }
+        // Runs an INSERT and returns LAST_INSERT_ID() from the SAME connection.
+        // NonQuery/Scalar each open+close their own connection, and LAST_INSERT_ID()
+        // is connection-scoped in MySQL, so calling them back-to-back always yields 0.
+        public static long InsertGetId(string sql, params MySqlParameter[] p){
+            using var c=Conn(); using var cmd=new MySqlCommand(sql,c);
+            foreach(var x in p)cmd.Parameters.Add(x);
+            c.Open();
+            cmd.ExecuteNonQuery();
+            cmd.CommandText="SELECT LAST_INSERT_ID()";
+            cmd.Parameters.Clear();
+            return Convert.ToInt64(cmd.ExecuteScalar());
+        }
         public static DataTable Select(string sql, params MySqlParameter[] p){
             using var c=Conn(); using var cmd=new MySqlCommand(sql,c);
             foreach(var x in p)cmd.Parameters.Add(x);
