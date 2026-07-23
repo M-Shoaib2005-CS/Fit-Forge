@@ -6,7 +6,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <title>FitForge</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght%40400;700;900&family=Rajdhani:wght%40400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
 <link rel="manifest" href="/manifest.json"/>
 <link rel="stylesheet" href="~/css/app.css" asp-append-version="true"/>
 </head>
@@ -179,20 +180,20 @@ if(pwInput){
     if(hasUpper) score++;
     if(hasDigit) score++;
     if(/[^A-Za-z0-9]/.test(v)) score++;
-    var colors = ['#ff4d4d','#f0a500','#3fb950','#00e5ff'];
+    var colors = ['#ff4d5e','#f5b942','#57d38c','#d7f24c'];
     var labels = ['Weak','Fair','Good','Strong'];
     var fill   = document.getElementById('pw-fill');
     var lbl    = document.getElementById('pw-label');
     fill.style.width      = (score * 25) + '%';
-    fill.style.background = colors[score-1] || '#ff4d4d';
+    fill.style.background = colors[score-1] || '#ff4d5e';
     lbl.textContent       = labels[score-1] || 'Too short';
-    lbl.style.color       = colors[score-1] || '#ff4d4d';
+    lbl.style.color       = colors[score-1] || '#ff4d5e';
   });
 }
 function setRule(id, met, text){
   var el = document.getElementById(id);
   el.textContent = (met ? '✓ ' : '○ ') + text;
-  el.style.color = met ? '#3fb950' : '#8b949e';
+  el.style.color = met ? '#57d38c' : '#8b8d93';
 }
 </script>
 </body>

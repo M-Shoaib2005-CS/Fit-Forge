@@ -31,9 +31,8 @@ namespace FitForge.DL
     public class WorkoutDL(ILogger<WorkoutDL> log)
     {
         public int StartSession(int uid, int dayId){
-            DB.NonQuery("INSERT INTO workout_sessions(user_id,day_id) VALUES(@u,@d)",
+            int sid=(int)DB.InsertGetId("INSERT INTO workout_sessions(user_id,day_id) VALUES(@u,@d)",
                 DB.P("@u",uid),DB.P("@d",dayId));
-            int sid=Convert.ToInt32(DB.Scalar("SELECT LAST_INSERT_ID()"));
             log.LogInformation("Session started uid:{U} day:{D} sid:{S}",uid,dayId,sid);
             return sid;
         }
@@ -51,6 +50,46 @@ namespace FitForge.DL
                 DB.P("@sid",sid),DB.P("@eid",eid),DB.P("@pde",pdeId),DB.P("@sn",setNum),
                 DB.P("@tr",targetReps),DB.P("@ar",actualReps),DB.P("@w",weightKg),
                 DB.P("@rpe",rpe),DB.P("@sk",skipped?1:0));
+        }
+
+        // Per-session performance history for one exercise — used to draw the
+        // "Show Details" progress chart. Deliberately NOT sourced from
+        // personal_records (that table only has sparse PR-breaking moments,
+        // all same-day-stamped, which makes a messy chart) — this pulls real
+        // per-session numbers so the trend line actually means something.
+        public List<(DateTime date, int maxReps, double? maxWeight, double volume)> GetExerciseSessionHistory(int uid, int exerciseId){
+            var dt = DB.Select(@"SELECT s.started_at,
+                    MAX(ws.actual_reps) AS max_reps,
+                    MAX(ws.weight_kg) AS max_weight,
+                    SUM(ws.actual_reps * IFNULL(ws.weight_kg,0)) AS volume
+                FROM workout_sets ws
+                JOIN workout_sessions s ON ws.session_id = s.session_id
+                WHERE s.user_id=@u AND ws.exercise_id=@e AND ws.was_skipped=0 AND ws.actual_reps>0
+                GROUP BY s.session_id, s.started_at
+                ORDER BY s.started_at ASC",
+                DB.P("@u",uid), DB.P("@e",exerciseId));
+            return dt.Rows().Select(r => (
+                Convert.ToDateTime(r["started_at"]),
+                Convert.ToInt32(r["max_reps"]),
+                r["max_weight"]!=DBNull.Value ? Convert.ToDouble(r["max_weight"]) : (double?)null,
+                r["volume"]!=DBNull.Value ? Convert.ToDouble(r["volume"]) : 0
+            )).ToList();
+        }
+
+        // Most recent non-skipped set for an exercise, across any past session —
+        // shown as "last time" context when logging a new set.
+        public (int? reps, double? weightKg, DateTime? date) GetLastSet(int uid, int exerciseId){
+            var dt = DB.Select(@"SELECT ws.actual_reps, ws.weight_kg, ws.logged_at
+                FROM workout_sets ws
+                JOIN workout_sessions s ON ws.session_id = s.session_id
+                WHERE s.user_id=@u AND ws.exercise_id=@e AND ws.was_skipped=0 AND ws.actual_reps>0
+                ORDER BY ws.logged_at DESC LIMIT 1",
+                DB.P("@u",uid), DB.P("@e",exerciseId));
+            if(dt.Rows.Count==0) return (null,null,null);
+            var r=dt.Rows[0];
+            return (Convert.ToInt32(r["actual_reps"]),
+                    r["weight_kg"]!=DBNull.Value?Convert.ToDouble(r["weight_kg"]):null,
+                    Convert.ToDateTime(r["logged_at"]));
         }
 
         public List<SessionModel> GetHistory(int uid, int limit=50)=>
@@ -100,24 +139,28 @@ namespace FitForge.DL
         // Gets current adaptive target for a pde, or initialises from base target
         public ExerciseTargetModel GetTarget(int uid, int pdeId){
             var dt=DB.Select(@"SELECT uet.*,pde.target_sets,pde.rest_seconds,pde.target_reps AS base_reps,
-                e.name AS ex_name,e.tracking_mode
+                e.name AS ex_name,e.tracking_mode,mg.name AS muscle_group
                 FROM user_exercise_targets uet
                 JOIN program_day_exercises pde ON uet.pde_id=pde.pde_id
                 JOIN exercises e ON pde.exercise_id=e.exercise_id
+                JOIN muscle_groups mg ON e.muscle_group_id=mg.group_id
                 WHERE uet.user_id=@u AND uet.pde_id=@p",DB.P("@u",uid),DB.P("@p",pdeId));
             if(dt.Rows.Count>0){
                 var r=dt.Rows[0];
                 return new ExerciseTargetModel{PdeId=pdeId,
                     ExerciseId=Convert.ToInt32(r.Table.Columns.Contains("exercise_id")?r["exercise_id"]:0),
                     ExerciseName=r["ex_name"].ToString()!,TrackingMode=r["tracking_mode"].ToString()!,
+                    MuscleGroup=r["muscle_group"].ToString()!,
                     CurrentTargetReps=Convert.ToInt32(r["current_target_reps"]),
                     CurrentTargetWeight=r["current_target_weight"]!=DBNull.Value?Convert.ToDouble(r["current_target_weight"]):null,
                     ConsecutiveHits=Convert.ToInt32(r["consecutive_hits"]),
                     TargetSets=Convert.ToInt32(r["target_sets"]),RestSeconds=Convert.ToInt32(r["rest_seconds"])};
             }
             // No target yet — initialise from program base
-            var init=DB.Select(@"SELECT pde.*,e.name AS ex_name,e.tracking_mode
-                FROM program_day_exercises pde JOIN exercises e ON pde.exercise_id=e.exercise_id
+            var init=DB.Select(@"SELECT pde.*,e.name AS ex_name,e.tracking_mode,mg.name AS muscle_group
+                FROM program_day_exercises pde
+                JOIN exercises e ON pde.exercise_id=e.exercise_id
+                JOIN muscle_groups mg ON e.muscle_group_id=mg.group_id
                 WHERE pde.pde_id=@p",DB.P("@p",pdeId));
             if(init.Rows.Count==0)return new ExerciseTargetModel{PdeId=pdeId};
             var ir=init.Rows[0];
@@ -128,6 +171,7 @@ namespace FitForge.DL
                 DB.P("@u",uid),DB.P("@p",pdeId),DB.P("@r",baseReps),DB.P("@w",baseW));
             return new ExerciseTargetModel{PdeId=pdeId,ExerciseId=Convert.ToInt32(ir["exercise_id"]),
                 ExerciseName=ir["ex_name"].ToString()!,TrackingMode=ir["tracking_mode"].ToString()!,
+                MuscleGroup=ir["muscle_group"].ToString()!,
                 CurrentTargetReps=baseReps,CurrentTargetWeight=baseW,
                 TargetSets=Convert.ToInt32(ir["target_sets"]),RestSeconds=Convert.ToInt32(ir["rest_seconds"])};
         }
@@ -137,69 +181,149 @@ namespace FitForge.DL
             return pdes.Rows().Select(r=>GetTarget(uid,Convert.ToInt32(r["pde_id"]))).ToList();
         }
 
-        // Core adaptive logic — called after every session
-        // Conservative: miss→+1, hit→+1, exceed→+ceil(excess*0.4)
-        // Moderate:     miss→same, hit→+2, exceed→+ceil(excess*0.6)
-        // Aggressive:   miss→+1, hit→+2, exceed→+ceil(excess*0.8)
-        // Adaptive:     dynamic based on consecutive hits + miss ratio
+        // ── Bracket-based double progression ──────────────────────────
+        // Zones are absolute rep thresholds (not relative to a drifting target):
+        //   <= Low-2   : SharpCut     (well under range — deload hard)
+        //      Low-1   : ModerateCut  (just under range — deload a bit)
+        //   Low..High  : Hold         ("grind zone" — no change, just add reps)
+        //   High+1..+3 : SmallAdd     (cleared the range — small increase)
+        //   >= High+4  : LargeAdd     (crushed it — bigger increase)
+        // Window (Low,High) widens for Conservative and narrows for Aggressive.
+        // Adaptive uses the Moderate window but escalates increments once a
+        // user is on a hit streak (ConsecutiveHits >= 3), and always resets
+        // to base increments the moment a cut occurs.
+        private enum Zone { SharpCut, ModerateCut, Hold, SmallAdd, LargeAdd }
+
+        private static (int Low, int High, double Mult) StyleProfile(string style, int consecutiveHits) => style switch{
+            "Conservative" => (6, 9, 0.6),
+            "Aggressive"   => (7, 8, 1.4),
+            "Adaptive"     => (6, 8, consecutiveHits >= 3 ? 1.4 : 1.0),
+            _              => (6, 8, 1.0) // Moderate (default)
+        };
+
+        private static Zone ClassifyReps(int reps, int low, int high){
+            if(reps <= low - 2) return Zone.SharpCut;
+            if(reps == low - 1) return Zone.ModerateCut;
+            if(reps <= high) return Zone.Hold;
+            if(reps <= high + 3) return Zone.SmallAdd;
+            return Zone.LargeAdd;
+        }
+
+        // Muscle groups with multi-joint, heavier-load movements vs single-joint isolation work.
+        private static readonly HashSet<string> CompoundGroups = new(StringComparer.OrdinalIgnoreCase){
+            "Chest","Back","Shoulders","Legs","Glutes","Full Body"
+        };
+        private static bool IsCompound(string muscleGroup) => CompoundGroups.Contains(muscleGroup);
+
+        private static double WeightDelta(Zone zone, bool compound, double mult){
+            double baseKg = zone switch{
+                Zone.SharpCut    => compound ? -5.0 : -2.0,
+                Zone.ModerateCut => compound ? -2.5 : -1.0,
+                Zone.Hold        => 0,
+                Zone.SmallAdd    => compound ?  2.5 :  1.0,
+                Zone.LargeAdd    => compound ?  5.0 :  2.0,
+                _ => 0
+            };
+            return zone == Zone.Hold ? 0 : Math.Round(baseKg * mult * 2, MidpointRounding.AwayFromZero) / 2; // round to nearest 0.5kg
+        }
+
+        // Same zones, expressed as a reps delta — used for bodyweight/duration
+        // exercises where weight can't move. (No harder-variation catalogue
+        // exists yet — see notes — so this is the operative behaviour today.)
+        private static int RepsDelta(Zone zone, double mult){
+            double baseReps = zone switch{
+                Zone.SharpCut    => -4,
+                Zone.ModerateCut => -2,
+                Zone.Hold        => 0,
+                Zone.SmallAdd    =>  2,
+                Zone.LargeAdd    =>  4,
+                _ => 0
+            };
+            return (int)Math.Round(baseReps * mult, MidpointRounding.AwayFromZero);
+        }
+
         public void UpdateTargetsAfterSession(int uid, int sessionId, int dayId, string progressionStyle, List<LoggedSet> sets){
-            var grouped=sets.Where(s=>!s.Skipped).GroupBy(s=>s.PdeId);
+            var grouped=sets.Where(s=>!s.Skipped && s.ActualReps>0).GroupBy(s=>s.PdeId);
             foreach(var g in grouped){
                 var t=GetTarget(uid,g.Key);
                 if(t.CurrentTargetReps==0)continue;
-                // average actual reps across non-skipped sets
-                double avgActual=g.Average(s=>s.ActualReps);
-                double avgTarget=t.CurrentTargetReps;
-                double ratio=avgActual/avgTarget; // <1=missed, =1=hit, >1=exceeded
-                int newTarget=CalcNewTarget(t,ratio,progressionStyle);
-                if(newTarget==t.CurrentTargetReps){
-                    DB.NonQuery("UPDATE user_exercise_targets SET consecutive_hits=CASE WHEN @r>=1 THEN consecutive_hits+1 ELSE 0 END WHERE user_id=@u AND pde_id=@p",
-                        DB.P("@r",ratio),DB.P("@u",uid),DB.P("@p",g.Key));
-                    continue;
-                }
-                string reason=ratio<0.85?"missed_target":ratio<=1.05?"hit_target":"exceeded_target";
-                DB.NonQuery(@"INSERT INTO target_history(user_id,pde_id,session_id,old_target,new_target,reason)
-                    VALUES(@u,@p,@sid,@ot,@nt,@r)",
-                    DB.P("@u",uid),DB.P("@p",g.Key),DB.P("@sid",sessionId),
-                    DB.P("@ot",t.CurrentTargetReps),DB.P("@nt",newTarget),DB.P("@r",reason));
-                DB.NonQuery(@"UPDATE user_exercise_targets SET current_target_reps=@nt,
-                    consecutive_hits=CASE WHEN @ratio>=1 THEN consecutive_hits+1 ELSE 0 END
-                    WHERE user_id=@u AND pde_id=@p",
-                    DB.P("@nt",newTarget),DB.P("@ratio",ratio),DB.P("@u",uid),DB.P("@p",g.Key));
-                log.LogInformation("Target updated uid:{U} pde:{P} {Old}->{New} ({R})",uid,g.Key,t.CurrentTargetReps,newTarget,reason);
-                // Weight progression for gym exercises
-                if(t.TrackWeight&&g.Any(s=>s.WeightKg.HasValue)&&ratio>=1.0){
-                    double avgW=g.Where(s=>s.WeightKg.HasValue).Average(s=>s.WeightKg!.Value);
-                    double weightIncrement=progressionStyle=="Aggressive"?2.5:progressionStyle=="Conservative"?1.25:2.5;
-                    if(t.ConsecutiveHits>=2)
-                        DB.NonQuery("UPDATE user_exercise_targets SET current_target_weight=@w WHERE user_id=@u AND pde_id=@p",
-                            DB.P("@w",Math.Round(avgW+weightIncrement,2)),DB.P("@u",uid),DB.P("@p",g.Key));
+
+                // Use the toughest set of the group (min reps) — one weak set
+                // shouldn't be masked by an average across easier warm-up sets.
+                int repsAchieved=g.Min(s=>s.ActualReps);
+                var (low, high, mult) = StyleProfile(progressionStyle, t.ConsecutiveHits);
+                Zone zone = ClassifyReps(repsAchieved, low, high);
+                bool compound = IsCompound(t.MuscleGroup);
+
+                int newConsecutive = zone is Zone.SharpCut or Zone.ModerateCut ? 0 : t.ConsecutiveHits + 1;
+                int newTargetReps = t.CurrentTargetReps;
+                string reason;
+
+                if(t.TrackWeight){
+                    double delta = WeightDelta(zone, compound, mult);
+                    double currentWeight = t.CurrentTargetWeight ?? 0;
+                    if(delta != 0){
+                        double newWeight = Math.Max(0, Math.Round(currentWeight + delta, 2));
+                        // A new weight resets the working rep target: heavier ->
+                        // expect the bottom of the range; lighter -> expect the top.
+                        newTargetReps = delta > 0 ? low : high;
+                        DB.NonQuery(@"UPDATE user_exercise_targets SET current_target_weight=@w,current_target_reps=@r,
+                            consecutive_hits=@ch WHERE user_id=@u AND pde_id=@p",
+                            DB.P("@w",newWeight),DB.P("@r",newTargetReps),DB.P("@ch",newConsecutive),
+                            DB.P("@u",uid),DB.P("@p",g.Key));
+                        reason=$"{zone.ToString().ToLower()}:weight {currentWeight:0.##}->{newWeight:0.##}kg ({(compound?"compound":"isolation")})";
+                        LogTargetChange(uid,g.Key,sessionId,t.CurrentTargetReps,newTargetReps,reason);
+                        log.LogInformation("Target(weight) uid:{U} pde:{P} {Reps} reps -> {Old}kg->{New}kg [{Zone}]",uid,g.Key,repsAchieved,currentWeight,newWeight,zone);
+                    } else {
+                        // Hold zone — literally no change, just bump the hit streak.
+                        DB.NonQuery("UPDATE user_exercise_targets SET consecutive_hits=@ch WHERE user_id=@u AND pde_id=@p",
+                            DB.P("@ch",newConsecutive),DB.P("@u",uid),DB.P("@p",g.Key));
+                    }
+                } else {
+                    // Bodyweight / duration exercises — no weight to move, so the
+                    // rep (or seconds-held) target itself shifts instead.
+                    int delta = RepsDelta(zone, mult);
+                    if(delta != 0){
+                        newTargetReps = Math.Max(3, t.CurrentTargetReps + delta);
+                        DB.NonQuery(@"UPDATE user_exercise_targets SET current_target_reps=@r,consecutive_hits=@ch
+                            WHERE user_id=@u AND pde_id=@p",
+                            DB.P("@r",newTargetReps),DB.P("@ch",newConsecutive),DB.P("@u",uid),DB.P("@p",g.Key));
+                        reason=$"{zone.ToString().ToLower()}:reps {t.CurrentTargetReps}->{newTargetReps}";
+                        LogTargetChange(uid,g.Key,sessionId,t.CurrentTargetReps,newTargetReps,reason);
+                        log.LogInformation("Target(reps) uid:{U} pde:{P} {Reps} reps -> {Old}->{New} [{Zone}]",uid,g.Key,repsAchieved,t.CurrentTargetReps,newTargetReps,zone);
+                    } else {
+                        DB.NonQuery("UPDATE user_exercise_targets SET consecutive_hits=@ch WHERE user_id=@u AND pde_id=@p",
+                            DB.P("@ch",newConsecutive),DB.P("@u",uid),DB.P("@p",g.Key));
+                    }
                 }
             }
         }
 
-        private static int CalcNewTarget(ExerciseTargetModel t, double ratio, string style){
-            int cur=t.CurrentTargetReps;
-            int excess=(int)Math.Ceiling((ratio-1.0)*cur); // how many reps above target on avg
-            int deficit=(int)Math.Ceiling((1.0-ratio)*cur);
-            return style switch{
-                "Conservative"=>ratio<0.85?Math.Max(1,cur-1):ratio>1.05?cur+Math.Max(1,(int)Math.Ceiling(excess*0.4)):cur+1,
-                "Moderate"=>ratio<0.75?cur:ratio>1.1?cur+Math.Max(1,(int)Math.Ceiling(excess*0.6)):cur+(ratio>=1?2:0),
-                "Aggressive"=>ratio<0.85?cur+1:ratio>1.05?cur+Math.Max(2,(int)Math.Ceiling(excess*0.8)):cur+2,
-                // Adaptive: conservative when missing, accelerate when consistently hitting
-                _=>ratio<0.85?Math.Max(1,cur-1):ratio>1.15&&t.ConsecutiveHits>=2?cur+Math.Max(1,(int)Math.Ceiling(excess*0.6)):
-                   ratio>=1&&t.ConsecutiveHits>=3?cur+2:ratio>=1?cur+1:cur
-            };
+        private void LogTargetChange(int uid,int pdeId,int sessionId,int oldReps,int newReps,string reason){
+            DB.NonQuery(@"INSERT INTO target_history(user_id,pde_id,session_id,old_target,new_target,reason)
+                VALUES(@u,@p,@sid,@ot,@nt,@r)",
+                DB.P("@u",uid),DB.P("@p",pdeId),DB.P("@sid",sessionId),
+                DB.P("@ot",oldReps),DB.P("@nt",newReps),DB.P("@r",reason));
         }
     }
 
     // ── Personal Records DL ───────────────────────────────────
     public class PersonalRecordDL
     {
-        public List<PersonalRecordModel> GetForUser(int uid, int limit=20)=>
-            DB.Select(@"SELECT pr.*,e.name AS ex_name FROM personal_records pr
-                JOIN exercises e ON pr.exercise_id=e.exercise_id
-                WHERE pr.user_id=@u ORDER BY pr.achieved_at DESC LIMIT @lim",
+        // One row per (exercise, record_type) — the current best only.
+        // Doesn't touch the underlying rows, so full history stays available
+        // for GetForExercise (used to draw progress charts).
+        public List<PersonalRecordModel> GetForUser(int uid, int limit=50)=>
+            DB.Select(@"SELECT pr.*, e.name AS ex_name FROM (
+                    SELECT pr.*, ROW_NUMBER() OVER (
+                        PARTITION BY pr.exercise_id, pr.record_type
+                        ORDER BY pr.value DESC, pr.achieved_at DESC, pr.pr_id DESC
+                    ) AS rn
+                    FROM personal_records pr WHERE pr.user_id=@u
+                ) pr
+                JOIN exercises e ON pr.exercise_id = e.exercise_id
+                WHERE pr.rn = 1
+                ORDER BY pr.achieved_at DESC LIMIT @lim",
                 DB.P("@u",uid),DB.P("@lim",limit))
               .Rows().Select(MapPR).ToList();
 

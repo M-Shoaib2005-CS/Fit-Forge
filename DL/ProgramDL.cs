@@ -55,15 +55,13 @@ namespace FitForge.DL
                   RestSeconds=Convert.ToInt32(r["rest_seconds"]),Notes=r["notes"]?.ToString()??""}).ToList();
 
         public int CreateProgram(int uid, string name, string desc, string goalType, string progStyle){
-            DB.NonQuery("INSERT INTO programs(user_id,name,description,goal_type,progression_style) VALUES(@u,@n,@d,@g,@p)",
+            return (int)DB.InsertGetId("INSERT INTO programs(user_id,name,description,goal_type,progression_style) VALUES(@u,@n,@d,@g,@p)",
                 DB.P("@u",uid),DB.P("@n",name),DB.P("@d",desc),DB.P("@g",goalType),DB.P("@p",progStyle));
-            return Convert.ToInt32(DB.Scalar("SELECT LAST_INSERT_ID()"));
         }
 
         public int AddDay(int programId, int order, string name, string dayType){
-            DB.NonQuery("INSERT INTO program_days(program_id,day_order,name,day_type) VALUES(@p,@o,@n,@t)",
+            return (int)DB.InsertGetId("INSERT INTO program_days(program_id,day_order,name,day_type) VALUES(@p,@o,@n,@t)",
                 DB.P("@p",programId),DB.P("@o",order),DB.P("@n",name),DB.P("@t",dayType));
-            return Convert.ToInt32(DB.Scalar("SELECT LAST_INSERT_ID()"));
         }
 
         public void AddExercise(int dayId, int exerciseId, int order, int sets, int reps, double? weightKg, int rest){

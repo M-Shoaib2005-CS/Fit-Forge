@@ -32,8 +32,7 @@ namespace FitForge.DL
         public int EnsureSchedule(int uid){
             var ex=DB.Scalar("SELECT schedule_id FROM user_schedules WHERE user_id=@u AND is_active=1 LIMIT 1",DB.P("@u",uid));
             if(ex!=null&&ex!=DBNull.Value)return Convert.ToInt32(ex);
-            DB.NonQuery("INSERT INTO user_schedules(user_id,name) VALUES(@u,'My Schedule')",DB.P("@u",uid));
-            return Convert.ToInt32(DB.Scalar("SELECT LAST_INSERT_ID()"));
+            return (int)DB.InsertGetId("INSERT INTO user_schedules(user_id,name) VALUES(@u,'My Schedule')",DB.P("@u",uid));
         }
 
         public void SaveSlots(int scheduleId, List<SlotReq> slots){

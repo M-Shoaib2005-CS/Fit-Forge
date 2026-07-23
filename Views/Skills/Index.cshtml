@@ -2,9 +2,9 @@
 @{ ViewData["Title"]="Skills"; ViewData["Page"]="Skills"; }
 
 <div class="page-header">
-  <h1 class="page-title">Calisthenics Skills</h1>
-  <p class="text-muted">Progressive skill unlocks based on your strength. Log max reps in Workouts to meet requirements.</p>
+  <div><div class="eyebrow">CALISTHENICS</div><h1 class="page-title">Skill Tree</h1></div>
 </div>
+<p class="text-muted mb-2">Progressive skill unlocks based on your strength. Log max reps in Workouts to meet requirements.</p>
 
 @foreach(var cat in Model.Skills.GroupBy(s=>s.Category).OrderBy(g=>g.Key)){
   <div class="skill-category">
@@ -23,13 +23,23 @@
               <div class="skill-active-badge">&#9889; Active</div>
             }
           </div>
-          <div class="skill-name">@sk.Name</div>
-          <div class="skill-desc text-muted">@sk.Description</div>
+          <div class="skillcard-row">
+            <div class="skillcard-meta">
+              <div class="skill-name">@sk.Name</div>
+              <div class="skill-desc text-muted">@sk.Description</div>
+            </div>
+            @if(sk.IsUnlocked){
+              <div class="ring-wrap">
+                <svg viewBox="0 0 60 60">
+                  <circle class="ring-bg" cx="30" cy="30" r="24"></circle>
+                  <circle class="ring-fg" data-pct="@sk.Percent" cx="30" cy="30" r="24"></circle>
+                </svg>
+                <div class="ring-pct">@sk.Percent%</div>
+              </div>
+            }
+          </div>
           @if(sk.IsUnlocked){
             <div class="skill-progress-wrap">
-              <div class="skill-progress-bar">
-                <div class="skill-progress-fill" style="width:@(sk.Percent)%"></div>
-              </div>
               <div class="skill-step-label text-muted">Step @sk.CurrentStep / @sk.TotalSteps</div>
             </div>
             @if(!string.IsNullOrEmpty(sk.CurrentStepTitle)){
@@ -138,6 +148,7 @@ function closeSkill(){document.getElementById('skill-modal').style.display='none
 function toggleSkill(id){
   fetch('/Skills/Toggle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({skillId:id})})
   .then(function(r){return r.json();}).then(function(d){
+    if(d.success && typeof ffConfetti==='function') ffConfetti();
     if(d.newAchievements&&d.newAchievements.length>0){
       showAchievements(d.newAchievements);
       setTimeout(function(){location.reload();},d.newAchievements.length*3500+500);
@@ -151,6 +162,7 @@ function toggleSkill(id){
 function advanceStep(id){
   fetch('/Skills/Advance',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({skillId:id})})
   .then(function(r){return r.json();}).then(function(d){
+    if(d.success && typeof ffConfetti==='function') ffConfetti();
     if(d.newAchievements&&d.newAchievements.length>0){ showAchievements(d.newAchievements); setTimeout(function(){location.reload();},d.newAchievements.length*3500+500); return; }
     showToast(d.msg,d.success?'success':'danger');
     if(d.success)setTimeout(function(){location.reload();},900);

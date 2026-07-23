@@ -2,6 +2,17 @@ using FitForge.BL; using FitForge.DL; using FitForge.Services;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Authentication.Cookies;
+
+// Must run before CreateBuilder(): stops the config system from creating a
+// FileSystemWatcher (inotify instance) to watch appsettings.json for live edits.
+// We don't need hot-reload in production, and on shared hosts like Render the
+// inotify instance cap (128) is shared across every tenant on the physical
+// machine — so whether this app can even start depends on what else happens
+// to be running on that host at that moment. That's why it crashed on some
+// restarts/redeploys and not others. Removing the watcher removes the failure
+// mode entirely, rather than hoping there's room under someone else's limit.
+Environment.SetEnvironmentVariable("DOTNET_hostBuilder:reloadConfigOnChange", "false");
+
 var builder = WebApplication.CreateBuilder(args);
 string cs = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection missing");
@@ -40,6 +51,7 @@ builder.Services.AddScoped<ProgramBL>(); builder.Services.AddScoped<SkillBL>();
 builder.Services.AddScoped<ProfileBL>(); builder.Services.AddScoped<AchievementBL>();
 // Services
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddHttpClient<GeminiService>();
 var app = builder.Build();
 app.UseForwardedHeaders(new ForwardedHeadersOptions{
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
