@@ -11,17 +11,18 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="theme-color" content="#00e5ff" />
+    <meta name="theme-color" content="#ff5a2b" />
     <title>@ViewData["Title"] — FitForge</title>
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght%40400;700;900&family=Rajdhani:wght%40400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
     @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
 <div class="shell">
-    <nav class="sidebar" role="navigation" aria-label="Main navigation">
+    <nav class="sidebar" role="navigation" aria-label="Main navigation" data-tour="nav">
         <div class="logo">FF</div>
         <a asp-controller="Dashboard" asp-action="Index"  class='nav-item @(page=="Dashboard"?"active":"")'  aria-label="Dashboard">
             <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
@@ -75,8 +76,36 @@
     </div>
 </div>
 
+<!-- AI Coach: floating orb + chat panel (global, follows theme/accent automatically) -->
+<div class="coach-orb" id="coach-orb" onclick="Coach.open()" title="Ask the coach">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M12 2a5 5 0 0 0-5 5v2.05A6 6 0 0 0 3 15v1a1 1 0 0 0 1 1h1.17A3 3 0 0 0 8 19.83V21a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-1.17A3 3 0 0 0 18.83 17H20a1 1 0 0 0 1-1v-1a6 6 0 0 0-4-5.66V7a5 5 0 0 0-5-5Zm-2 9.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Zm4 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Z" fill="var(--accent-ink)"/></svg>
+</div>
+
+<div class="coach-backdrop" id="coach-backdrop" onclick="if(event.target===this)Coach.close()">
+  <div class="coach-panel" id="coach-panel">
+    <div class="coach-head">
+      <div class="coach-avatar">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 2a5 5 0 0 0-5 5v2.05A6 6 0 0 0 3 15v1a1 1 0 0 0 1 1h1.17A3 3 0 0 0 8 19.83V21a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-1.17A3 3 0 0 0 18.83 17H20a1 1 0 0 0 1-1v-1a6 6 0 0 0-4-5.66V7a5 5 0 0 0-5-5Zm-2 9.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Zm4 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Z" fill="var(--accent-ink)"/></svg>
+      </div>
+      <div>
+        <div class="coach-title">Coach</div>
+        <div class="coach-sub">Online</div>
+      </div>
+      <button class="coach-close" onclick="Coach.close()">✕</button>
+    </div>
+    <div class="coach-body" id="coach-body"></div>
+    <div class="coach-input-row">
+      <input class="coach-input" id="coach-input" placeholder="Ask or tell the coach something…" onkeydown="if(event.key==='Enter')Coach.send()">
+      <button class="coach-send" onclick="Coach.send()">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M3 11.5 20.5 3 12 20.5l-2.2-6.8L3 11.5Z" stroke="var(--accent-ink)" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
 <script src="~/js/app.js" asp-append-version="true"></script>
 <script>
+
 // ── PWA Service Worker ────────────────────────────────────────
 if('serviceWorker' in navigator){
     navigator.serviceWorker.register('/sw.js').catch(()=>{});

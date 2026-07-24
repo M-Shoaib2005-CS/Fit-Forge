@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: fitforge
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /Account/Login
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      - key: Email__BaseUrl
+        sync: false
+      - key: TWA__Sha256Fingerprint
+        sync: false

@@ -24,13 +24,13 @@ namespace FitForge.BL
             if(err!=null)return(false,err);
             try{
                 string hash=BCrypt.Net.BCrypt.HashPassword(pw);
-                int uid=dl.Register(name.Trim(),username.Trim(),email.Trim(),hash);
                 var d=DateTime.TryParse(dob,out var dt)?dt:DateTime.Now.AddYears(-20);
-                dl.CreateProfile(uid,d,gender,(decimal)h,(decimal)w,level);
+                int uid=dl.RegisterWithProfile(name.Trim(),username.Trim(),email.Trim(),hash,d,gender,(decimal)h,(decimal)w,level);
                 await SetSessionAsync(uid,name.Trim());
                 return(true,"");
             }catch(Exception ex){
-                string msg=ex.Message.Contains("Duplicate")?"Username or email already taken":"Registration failed";
+                string msg=ex.Message.Contains("Duplicate",StringComparison.OrdinalIgnoreCase)||ex.Message.Contains("duplicate key",StringComparison.OrdinalIgnoreCase)
+                    ?"Username or email already taken":"Registration failed — please try again";
                 log.LogError(ex,"Register failed for {U}",username);
                 return(false,msg);
             }

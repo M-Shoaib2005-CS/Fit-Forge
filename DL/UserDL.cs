@@ -15,11 +15,53 @@ namespace FitForge.DL
                 DB.P("@n",name),DB.P("@u",username.ToLower()),DB.P("@e",email.ToLower()),DB.P("@p",hash)));
         }
         public void CreateProfile(int uid, DateTime dob, string gender, decimal h, decimal w, string level){
-            int age=DateTime.Now.Year-dob.Year; if(DateTime.Now<dob.AddYears(age))age--;
             DB.NonQuery("INSERT INTO user_profile(user_id,dob,gender,height_cm,weight_kg,fitness_level) VALUES(@u,@d,@g,@h,@w,@l)",
                 DB.P("@u",uid),DB.P("@d",dob.ToString("yyyy-MM-dd")),DB.P("@g",gender),
                 DB.P("@h",h),DB.P("@w",w),DB.P("@l",level));
             DB.NonQuery("INSERT INTO user_streaks(user_id) VALUES(@u) ON DUPLICATE KEY UPDATE user_id=user_id",DB.P("@u",uid));
+        }
+
+        // Does the users + user_profile + user_streaks inserts as ONE atomic transaction.
+        // Without this, a failure partway through (bad enum value, dropped connection, etc.)
+        // could leave a orphaned 'users' row with no profile — which then permanently blocks
+        // that username/email from ever registering again, since the row itself still exists.
+        public int RegisterWithProfile(string name, string username, string email, string hash,
+            DateTime dob, string gender, decimal h, decimal w, string level)
+        {
+            log.LogInformation("Registering {Username}", username);
+            return DB.Transaction((c, tx) =>
+            {
+                using (var cmd = new MySqlConnector.MySqlCommand(
+                    "INSERT INTO users(name,username,email,password) VALUES(@n,@u,@e,@p); SELECT LAST_INSERT_ID();", c, tx))
+                {
+                    cmd.Parameters.Add(DB.P("@n", name));
+                    cmd.Parameters.Add(DB.P("@u", username.ToLower()));
+                    cmd.Parameters.Add(DB.P("@e", email.ToLower()));
+                    cmd.Parameters.Add(DB.P("@p", hash));
+                    int uid = Convert.ToInt32(cmd.ExecuteScalar());
+
+                    using (var cmd2 = new MySqlConnector.MySqlCommand(
+                        "INSERT INTO user_profile(user_id,dob,gender,height_cm,weight_kg,fitness_level) VALUES(@u,@d,@g,@h,@w,@l)", c, tx))
+                    {
+                        cmd2.Parameters.Add(DB.P("@u", uid));
+                        cmd2.Parameters.Add(DB.P("@d", dob.ToString("yyyy-MM-dd")));
+                        cmd2.Parameters.Add(DB.P("@g", gender));
+                        cmd2.Parameters.Add(DB.P("@h", h));
+                        cmd2.Parameters.Add(DB.P("@w", w));
+                        cmd2.Parameters.Add(DB.P("@l", level));
+                        cmd2.ExecuteNonQuery();
+                    }
+
+                    using (var cmd3 = new MySqlConnector.MySqlCommand(
+                        "INSERT INTO user_streaks(user_id) VALUES(@u) ON DUPLICATE KEY UPDATE user_id=user_id", c, tx))
+                    {
+                        cmd3.Parameters.Add(DB.P("@u", uid));
+                        cmd3.ExecuteNonQuery();
+                    }
+
+                    return uid;
+                }
+            });
         }
 
         public (UserModel? user, string msg) Login(string username, string password){

@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FitForge.Controllers
 {
-    public class WorkoutsController(WorkoutBL wBL, UserDL uDL, ExerciseDL eDL) : BaseController(uDL)
+    public class WorkoutsController(WorkoutBL wBL, UserDL uDL, ExerciseDL eDL, WorkoutDL wDL) : BaseController(uDL)
     {
         public IActionResult Index()
         {
@@ -21,19 +21,42 @@ namespace FitForge.Controllers
             return View(wBL.BuildActiveWorkoutVM(Uid.Value, sessionId, dayId));
         }
 
+        // Per-session trend for one exercise — powers the "Show Details" chart
+        // on the PRs tab. One or two lines depending on whether the exercise
+        // tracks weight (reps only vs weight+volume).
+        public IActionResult ExerciseHistory(int exerciseId, string exerciseName)
+        {
+            if (Uid == null) return Json(new { success = false });
+            var points = wDL.GetExerciseSessionHistory(Uid.Value, exerciseId);
+            bool trackWeight = points.Any(p => p.maxWeight.HasValue);
+            return Json(new {
+                success = true,
+                exerciseName,
+                trackWeight,
+                points = points.Select(p => new {
+                    date   = p.date.ToString("yyyy-MM-dd"),
+                    label  = p.date.ToString("MMM d"),
+                    reps   = p.maxReps,
+                    weight = p.maxWeight,
+                    volume = Math.Round(p.volume, 1)
+                })
+            });
+        }
+
         public IActionResult SessionDetail(int sessionId)
         {
             if (Uid == null) return Json(new { success = false });
             var dt = DB.Select(
                 @"SELECT ws.session_id, ws.started_at, pd.name AS day_name, p.name AS prog_name,
                     wset.exercise_id, e.name AS ex_name, wset.set_number, wset.actual_reps,
-                    wset.target_reps, wset.weight_kg
+                    wset.target_reps, wset.weight_kg, wset.was_skipped
                   FROM workout_sessions ws
                   JOIN program_days pd ON ws.day_id = pd.day_id
                   JOIN programs p ON pd.program_id = p.program_id
                   LEFT JOIN workout_sets wset ON ws.session_id = wset.session_id
                   LEFT JOIN exercises e ON wset.exercise_id = e.exercise_id
-                  WHERE ws.session_id = @sid AND ws.user_id = @uid",
+                  WHERE ws.session_id = @sid AND ws.user_id = @uid
+                  ORDER BY wset.exercise_id, wset.set_number",
                 DB.P("@sid", sessionId), DB.P("@uid", Uid.Value));
 
             if (dt.Rows.Count == 0) return Json(new { success = false });
@@ -59,7 +82,8 @@ namespace FitForge.Controllers
                             {
                                 setNumber  = Convert.ToInt32(r["set_number"]),
                                 actualReps = Convert.ToInt32(r["actual_reps"]),
-                                weightKg   = r["weight_kg"] != System.DBNull.Value ? (double?)Convert.ToDouble(r["weight_kg"]) : null
+                                weightKg   = r["weight_kg"] != System.DBNull.Value ? (double?)Convert.ToDouble(r["weight_kg"]) : null,
+                                wasSkipped = r["was_skipped"] != System.DBNull.Value && Convert.ToInt32(r["was_skipped"]) == 1
                             }).ToList()
                         };
                     }).ToList()

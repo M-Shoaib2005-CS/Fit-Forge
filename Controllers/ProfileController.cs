@@ -1,7 +1,7 @@
 using FitForge.BL; using FitForge.DL; using FitForge.Models; using Microsoft.AspNetCore.Mvc;
 namespace FitForge.Controllers
 {
-    public class ProfileController(ProfileBL bl, UserBL uBL, UserDL uDL) : BaseController(uDL)
+    public class ProfileController(ProfileBL bl, UserBL uBL, UserDL uDL, PersonalRecordDL prDL) : BaseController(uDL)
     {
         public IActionResult Index(){
             if(Uid==null)return RedirectToAction("Login","Account");
@@ -9,6 +9,21 @@ namespace FitForge.Controllers
             var vm = bl.BuildVM(Uid.Value);
             ViewData["UserTheme"] = vm.User.Theme;
             return View(vm);
+        }
+        // Returns the full PR history for one exercise, used to draw the
+        // progress chart when a PR row is clicked.
+        public IActionResult ExercisePRHistory(int exerciseId){
+            if(Uid==null)return Json(new{success=false});
+            var history = prDL.GetForExercise(Uid.Value, exerciseId)
+                .OrderBy(p=>p.AchievedAt)
+                .Select(p=> new {
+                    date = p.AchievedAt.ToString("yyyy-MM-dd"),
+                    label = p.AchievedAt.ToString("MMM d"),
+                    recordType = p.RecordType,
+                    value = p.Value,
+                    weightKg = p.WeightKg
+                });
+            return Json(new{success=true, exerciseId, history});
         }
         [HttpPost,ValidateAntiForgeryToken]
         public IActionResult UpdateStats(double height, double weight){

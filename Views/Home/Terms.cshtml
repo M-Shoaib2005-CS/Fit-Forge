@@ -1,0 +1,30 @@
+@{
+    ViewData["Title"] = "Terms of Service";
+    ViewData["Page"] = "Profile";
+    Layout = "_Layout";
+}
+<div class="card">
+  <h1 class="page-title mb-2">Terms of Service</h1>
+  <p class="text-muted mb-2" style="font-size:13px">Last updated: @DateTime.UtcNow.ToString("MMMM yyyy")</p>
+
+  <div class="section-title">Acceptance</div>
+  <p style="font-size:14px;line-height:1.6;margin-bottom:12px">
+    By using FitForge you agree to these terms. If you do not agree, do not use the app.
+  </p>
+
+  <div class="section-title">Use of the app</div>
+  <p style="font-size:14px;line-height:1.6;margin-bottom:12px">
+    You are responsible for exercising safely. FitForge provides workout suggestions and tracking tools but does not
+    guarantee fitness results. Always listen to your body and seek professional guidance when needed.
+  </p>
+
+  <div class="section-title">Account</div>
+  <p style="font-size:14px;line-height:1.6;margin-bottom:12px">
+    Keep your login credentials secure. You may delete your account at any time from Profile → Settings.
+  </p>
+
+  <div class="section-title">Limitation of liability</div>
+  <p style="font-size:14px;line-height:1.6">
+    FitForge is provided "as is" without warranty. We are not liable for injuries or damages arising from use of the app.
+  </p>
+</div>

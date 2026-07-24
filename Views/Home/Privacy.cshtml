@@ -1,0 +1,32 @@
+@{
+    ViewData["Title"] = "Privacy Policy";
+    ViewData["Page"] = "Profile";
+    Layout = "_Layout";
+}
+<div class="card">
+  <h1 class="page-title mb-2">Privacy Policy</h1>
+  <p class="text-muted mb-2" style="font-size:13px">Last updated: @DateTime.UtcNow.ToString("MMMM yyyy")</p>
+
+  <div class="section-title">What we collect</div>
+  <p style="font-size:14px;line-height:1.6;margin-bottom:12px">
+    FitForge stores account information (name, email, username), fitness profile data (height, weight, fitness level),
+    workout logs, personal records, injury reports, and body measurements you enter in the app.
+  </p>
+
+  <div class="section-title">How we use it</div>
+  <p style="font-size:14px;line-height:1.6;margin-bottom:12px">
+    Your data powers adaptive workout progression, injury-aware exercise suggestions, streaks, achievements, and progress tracking.
+    We do not sell your personal data.
+  </p>
+
+  <div class="section-title">Data storage</div>
+  <p style="font-size:14px;line-height:1.6;margin-bottom:12px">
+    Data is stored securely in our database. You may delete your account and all associated data from Settings → Danger Zone.
+  </p>
+
+  <div class="section-title">Health disclaimer</div>
+  <p style="font-size:14px;line-height:1.6">
+    FitForge is a fitness tracking tool, not medical advice. Consult a doctor before starting any exercise program,
+    especially if you have injuries or health conditions.
+  </p>
+</div>

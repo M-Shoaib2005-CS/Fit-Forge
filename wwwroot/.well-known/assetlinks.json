@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.fitforge.app",
+    "sha256_cert_fingerprints": [
+      "07:6A:2B:D7:89:61:2F:C6:DF:B4:51:1C:61:2D:AC:AC:75:F4:87:51:C9:A8:17:2F:6A:2E:A5:74:2A:0F:46:CD"
+    ]
+  }
+}]

@@ -23,8 +23,16 @@ namespace FitForge.Controllers
 
         [HttpPost,ValidateAntiForgeryToken]
         public async Task<IActionResult> Register(string name, string username, string email, string password, string confirm,
-            string dob, string gender, double weight, double height, string fitnessLevel){
-            var(ok,msg)=await bl.Register(name,username,email,password,confirm,dob,gender,height,weight,fitnessLevel);
+            string dob, string gender, double? weight, double? height, string fitnessLevel){
+            if(!weight.HasValue || !height.HasValue){
+                TempData["RegError"]="Please enter a valid height and weight";
+                TempData["ShowReg"]=1;
+                TempData["RegName"]=name; TempData["RegUsername"]=username;
+                TempData["RegEmail"]=email; TempData["RegGender"]=gender;
+                TempData["RegLevel"]=fitnessLevel; TempData["RegDob"]=dob;
+                return RedirectToAction("Login");
+            }
+            var(ok,msg)=await bl.Register(name,username,email,password,confirm,dob,gender,height.Value,weight.Value,fitnessLevel);
             if(!ok){
                 TempData["RegError"]=msg;
                 TempData["ShowReg"]=1;
