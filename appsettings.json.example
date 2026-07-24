@@ -3,7 +3,7 @@
     "DefaultConnection": "Server=localhost;Port=3306;Database=fitforgedb;Uid=root;Pwd=;"
   },
   "Gemini": {
-    "ApiKey": "AQ.Ab8RN6LOF5MUqywk9ACMCfKElNxLNbosufQEnW7jgKwPiICRKQ",
+    "ApiKey": "PASTE_YOUR_GEMINI_API_KEY_HERE",
     "Model": "gemini-3.5-flash-lite"
   },
   "Email": {

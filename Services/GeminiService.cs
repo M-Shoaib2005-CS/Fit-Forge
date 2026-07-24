@@ -38,6 +38,12 @@ namespace FitForge.Services
             _log = log;
             _apiKey = config["Gemini:ApiKey"] ?? "";
             _model = config["Gemini:Model"] ?? "gemini-3.5-flash-lite";
+
+            if (IsConfigured)
+            {
+                string suffix = _apiKey.Length >= 6 ? _apiKey[^6..] : _apiKey;
+                _log.LogInformation("GeminiService loaded with API key ending '...{Suffix}', model '{Model}'.", suffix, _model);
+            }
         }
 
         public bool IsConfigured => !string.IsNullOrWhiteSpace(_apiKey) && _apiKey != "PASTE_YOUR_GEMINI_API_KEY_HERE";
@@ -327,10 +333,12 @@ INJURY PROTOCOL (takes priority over the program-building flow if the user menti
                 var respBody = await resp.Content.ReadAsStringAsync();
                 if (!resp.IsSuccessStatusCode)
                 {
+                    string keySuffix = _apiKey.Length >= 6 ? _apiKey[^6..] : _apiKey;
                     if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized || resp.StatusCode == System.Net.HttpStatusCode.Forbidden)
-                        _log.LogError("Gemini API rejected the configured API key ({Status}). Double-check Gemini:ApiKey in " +
-                            "appsettings.json is current and the Generative Language API is enabled for its project. Body: {Body}",
-                            resp.StatusCode, respBody);
+                        _log.LogError("Gemini API rejected the configured API key ({Status}), key ending '...{KeySuffix}'. " +
+                            "Double-check Gemini:ApiKey in appsettings.json is current and the app was actually restarted " +
+                            "after any config change. Body: {Body}",
+                            resp.StatusCode, keySuffix, respBody);
                     else
                         _log.LogError("Gemini API error {Status}: {Body}", resp.StatusCode, respBody);
                     return new CoachReply { Kind = "chat", Message = "Sorry, the coach is temporarily unavailable — please try again in a bit." };
