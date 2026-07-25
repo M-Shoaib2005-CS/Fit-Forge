@@ -189,6 +189,7 @@ INJURY PROTOCOL (takes priority over the program-building flow if the user menti
                         days = new
                         {
                             type = "ARRAY",
+                            minItems = 1,
                             items = new
                             {
                                 type = "OBJECT",
@@ -211,15 +212,22 @@ INJURY PROTOCOL (takes priority over the program-building flow if the user menti
                                                 weightKg = new { type = "NUMBER", nullable = true },
                                                 restSeconds = new { type = "INTEGER" }
                                             },
-                                            required = new[] { "exerciseId", "name", "sets", "reps", "restSeconds" }
+                                            required = new[] { "exerciseId", "name", "sets", "reps", "restSeconds" },
+                                            // Gemini's structured output orders properties alphabetically by default,
+                                            // which forces the model to decide sets/reps before it's even named the
+                                            // exercise. Explicit ordering lets it "think in order": pick the exercise,
+                                            // then its numbers.
+                                            propertyOrdering = new[] { "exerciseId", "name", "sets", "reps", "weightKg", "restSeconds" }
                                         }
                                     }
                                 },
-                                required = new[] { "name", "dayType", "exercises" }
+                                required = new[] { "name", "dayType", "exercises" },
+                                propertyOrdering = new[] { "name", "dayType", "exercises" }
                             }
                         }
                     },
-                    required = new[] { "name", "description", "goalType", "progressionStyle", "days" }
+                    required = new[] { "name", "description", "goalType", "progressionStyle", "days" },
+                    propertyOrdering = new[] { "name", "description", "goalType", "progressionStyle", "days" }
                 },
                 injury = new
                 {
@@ -234,7 +242,8 @@ INJURY PROTOCOL (takes priority over the program-building flow if the user menti
                     required = new[] { "bodyPart", "category", "notes" }
                 }
             },
-            required = new[] { "kind", "message" }
+            required = new[] { "kind", "message" },
+            propertyOrdering = new[] { "kind", "message", "quickReplies", "program", "injury" }
         };
 
         public async Task<CoachReply> SendAsync(List<CoachTurn> history, string? userContext = null)
@@ -372,6 +381,14 @@ INJURY PROTOCOL (takes priority over the program-building flow if the user menti
                 {
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                 });
+
+                // This is the one failure mode that previously left no trace anywhere: the JSON
+                // parsed fine and satisfied the schema, but the program itself was empty/partial
+                // (e.g. days: [] technically satisfies "required" without minItems). Log the raw
+                // text so a recurrence is diagnosable instead of just showing the generic fallback.
+                if (reply != null && reply.Kind == "proposal" && !HasUsableProgram(reply.Program))
+                    _log.LogWarning("Gemini returned kind=proposal without a usable program. Raw model text: {Text}", text);
+
                 return reply ?? new CoachReply { Kind = "chat", Message = "Hmm, I didn't quite catch that — could you rephrase?" };
             }
             catch (Exception ex)
