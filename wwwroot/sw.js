@@ -1,4 +1,4 @@
-const CACHE = 'fitforge-v7';
+const CACHE = 'fitforge-v9';
 const STATIC = [
   '/',
   '/css/app.css',
@@ -8,11 +8,11 @@ const STATIC = [
 ];
 
 self.addEventListener('install', e => {
-  // NOTE: no self.skipWaiting() here anymore. A first-ever install still activates
-  // immediately regardless (nothing to conflict with) — but when this is an UPDATE to an
-  // already-running app, holding off here is what lets the new worker sit in "waiting"
-  // state so the frontend can detect it, show an "Update available" banner, and only
-  // activate it once the user actually taps the button (see the 'message' listener below).
+  // skipWaiting so a redeploy takes effect on next load instead of sitting "waiting"
+  // until someone happens to tap the in-app update banner. Combined with clients.claim()
+  // below, this means: redeploy -> next page load anywhere already gets the new
+  // logo/icons/badge, no manual step required.
+  self.skipWaiting();
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(STATIC)));
 });
 
