@@ -38,7 +38,11 @@ namespace FitForge.Services
 
                     if (!push.IsConfigured)
                     {
-                        log.LogDebug("Push notifications not configured (missing Vapid keys) — skipping tick");
+                        // Was LogDebug — invisible in Render's default log level, meaning a
+                        // Vapid key misconfiguration would fail completely silently, forever,
+                        // with zero signal in the logs. Bumped to Warning so this is actually
+                        // visible if it's the cause.
+                        log.LogWarning("Push notifications not configured (missing or invalid Vapid keys) — skipping tick");
                     }
                     else
                     {
