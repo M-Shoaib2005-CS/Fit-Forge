@@ -57,6 +57,19 @@ builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
 builder.Services.AddHostedService<NotificationBackgroundService>();
 builder.Services.AddHttpClient<GeminiService>(c => c.Timeout = TimeSpan.FromSeconds(25));
 var app = builder.Build();
+
+// One-time visible-at-startup check — tells you immediately on deploy whether the Vapid
+// keys actually loaded, instead of only finding out 1-2 background ticks later.
+using(var scope = app.Services.CreateScope())
+{
+    var pushCheck = scope.ServiceProvider.GetRequiredService<IPushNotificationService>();
+    var startupLog = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    if(pushCheck.IsConfigured)
+        startupLog.LogInformation("Push notifications: configured, public key ends '...{Tail}'",
+            pushCheck.PublicKey.Length>=6?pushCheck.PublicKey[^6..]:pushCheck.PublicKey);
+    else
+        startupLog.LogWarning("Push notifications: NOT configured — Vapid:PublicKey/PrivateKey missing or empty. Check Vapid__PublicKey / Vapid__PrivateKey env vars.");
+}
 app.UseForwardedHeaders(new ForwardedHeadersOptions{
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
     // Render's proxy IPs aren't fixed, so clear the default restriction that would otherwise ignore the header
