@@ -2,6 +2,11 @@
 @{
     string theme = ViewData["UserTheme"]?.ToString() ?? "dark";
     string page  = ViewData["Page"]?.ToString() ?? "";
+    // Also drives theme-color below (the phone's actual status bar color) — previously
+    // that was hardcoded to solid accent orange, which meant the status bar was orange
+    // ALL the time, not just around anything meaningful. Matching the app's own
+    // background instead is the normal, expected behavior most apps use.
+    string criticalBg = theme == "light" ? "#f3f0e8" : "#17181a";
 }
 <!DOCTYPE html>
 <html id="html-root" lang="en" data-theme="@theme">
@@ -11,8 +16,9 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="theme-color" content="#ff5a2b" />
+    <meta name="theme-color" content="@criticalBg" />
     <title>@ViewData["Title"] — FitForge</title>
+    <style>html,body{background:@criticalBg;margin:0}</style>
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -103,13 +109,35 @@
   </div>
 </div>
 
-<script src="~/js/app.js" asp-append-version="true"></script>
-<script>
+<div class="modal-backdrop" id="ff-confirm-modal" style="display:none" onclick="if(event.target===this)_ffConfirmResolve(false)">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-header">
+      <div class="modal-title" id="ff-confirm-title">Are you sure?</div>
+    </div>
+    <div class="modal-body">
+      <p id="ff-confirm-text" style="margin:0 0 16px"></p>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline" style="flex:1" onclick="_ffConfirmResolve(false)">Cancel</button>
+        <button class="btn btn-danger" id="ff-confirm-ok-btn" style="flex:1" onclick="_ffConfirmResolve(true)">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-// ── PWA Service Worker ────────────────────────────────────────
-if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('/sw.js').catch(()=>{});
-}
+<div id="ff-update-banner" class="ff-update-banner">
+  <div class="ff-update-icon">
+    <svg viewBox="0 0 24 24" fill="none" width="17" height="17"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 19h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+  <div class="ff-update-text">
+    <div class="ff-update-title">Update available</div>
+    <div class="ff-update-subtitle">New features and fixes</div>
+  </div>
+  <button class="btn btn-sm btn-solid" onclick="applyPendingUpdate()">Update</button>
+</div>
+
+<script src="~/js/app.js" asp-append-version="true"></script>
+<script src="~/js/pwa.js" asp-append-version="true"></script>
+<script>
 
 // ── PWA install: suppress the automatic browser prompt, ───────
 // show our own "Install" button instead, and only prompt on click.

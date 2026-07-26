@@ -136,8 +136,26 @@ var FFTour = (function(){
     var target = document.querySelector(step.selector);
     if(!target){ next(); return; }
     target.scrollIntoView({ block:'center', behavior:'smooth' });
-    setTimeout(function(){
+
+    // scrollIntoView's smooth animation has no reliable "done" event across browsers, and a
+    // fixed timeout races it — on a longer scroll (or a slower device) we'd measure the
+    // element's position mid-scroll, spotlighting the wrong spot. Instead, poll the rect on
+    // consecutive frames and only proceed once it's stopped moving (or after a hard cap, so
+    // a genuinely stuck scroll can't hang the tour forever).
+    var lastRect = null, stableFrames = 0, framesWaited = 0;
+    function waitForScrollSettle(){
       var r = target.getBoundingClientRect();
+      var stable = lastRect && r.top === lastRect.top && r.left === lastRect.left;
+      stableFrames = stable ? stableFrames + 1 : 0;
+      lastRect = r;
+      framesWaited++;
+      if(stableFrames >= 3 || framesWaited > 60){ placeSpotlight(r); return; }
+      requestAnimationFrame(waitForScrollSettle);
+    }
+    requestAnimationFrame(waitForScrollSettle);
+  }
+
+  function placeSpotlight(r){
       var pad = 10;
       els.spot.style.display = 'block';
       els.card.classList.remove('ff-tour-card--center');
@@ -156,7 +174,6 @@ var FFTour = (function(){
       els.guideOrb.style.left = (r.left + r.width - 22) + 'px';
       els.guideOrb.style.top  = (r.top - 22) + 'px';
       els.guideOrb.classList.add('show');
-    }, 220);
   }
 
   function show(){
@@ -399,6 +416,25 @@ var Coach = (function(){
 
   return { open: open, close: close, send: send, tweak: tweak, apply: apply };
 })();
+
+// ── CONFIRM MODAL (styled replacement for native confirm()) ───
+var _ffConfirmPending = null;
+function _ffConfirmResolve(result){
+  var m=document.getElementById('ff-confirm-modal');
+  if(m)m.style.display='none';
+  if(_ffConfirmPending){ var r=_ffConfirmPending; _ffConfirmPending=null; r(result); }
+}
+// Usage: ffConfirm('Delete "My Program"?', 'This cannot be undone.').then(function(ok){ if(ok){...} });
+function ffConfirm(title, text){
+  return new Promise(function(resolve){
+    var modal=document.getElementById('ff-confirm-modal');
+    if(!modal){ resolve(window.confirm(title+(text?' '+text:''))); return; } // graceful fallback
+    document.getElementById('ff-confirm-title').textContent=title;
+    document.getElementById('ff-confirm-text').textContent=text||'';
+    _ffConfirmPending=resolve;
+    modal.style.display='flex';
+  });
+}
 
 // ── TOAST ────────────────────────────────────────────────────
 function showToast(msg, type){

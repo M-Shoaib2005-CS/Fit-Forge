@@ -131,6 +131,33 @@ namespace FitForge.DL
                 DayId=Convert.ToInt32(r["day_id"]),DayName=r["day_name"].ToString()!,
                 ProgramName=r["prog_name"].ToString()!,StartedAt=Convert.ToDateTime(r["started_at"])};
         }
+
+        // The Dashboard's "today's workout" card previously only checked schedule + open
+        // session — after finishing, the open session goes away but the card had no idea a
+        // session had *already* been completed today, so it just offered "Start Session"
+        // again as if nothing happened. This backs the fix: was there a finished session
+        // today, for this specific scheduled day.
+        public SessionModel? GetCompletedToday(int uid, int dayId){
+            var dt=DB.Select(@"SELECT ws.session_id,ws.day_id,ws.started_at,ws.finished_at,ws.duration_secs,
+                pd.name AS day_name,p.name AS prog_name,
+                COUNT(DISTINCT wset.set_id) AS total_sets
+                FROM workout_sessions ws
+                JOIN program_days pd ON ws.day_id=pd.day_id
+                JOIN programs p ON pd.program_id=p.program_id
+                LEFT JOIN workout_sets wset ON ws.session_id=wset.session_id
+                WHERE ws.user_id=@u AND ws.day_id=@d AND ws.finished_at IS NOT NULL
+                  AND DATE(ws.finished_at)=CURDATE()
+                GROUP BY ws.session_id,ws.day_id,ws.started_at,ws.finished_at,ws.duration_secs,pd.name,p.name
+                ORDER BY ws.finished_at DESC LIMIT 1",DB.P("@u",uid),DB.P("@d",dayId));
+            if(dt.Rows.Count==0)return null;
+            var r=dt.Rows[0];
+            return new SessionModel{SessionId=Convert.ToInt32(r["session_id"]),
+                DayId=Convert.ToInt32(r["day_id"]),DayName=r["day_name"].ToString()!,
+                ProgramName=r["prog_name"].ToString()!,StartedAt=Convert.ToDateTime(r["started_at"]),
+                FinishedAt=Convert.ToDateTime(r["finished_at"]),
+                DurationSecs=r["duration_secs"]!=DBNull.Value?Convert.ToInt32(r["duration_secs"]):null,
+                TotalSets=Convert.ToInt32(r["total_sets"])};
+        }
     }
 
     // ── Adaptive Engine DL ────────────────────────────────────

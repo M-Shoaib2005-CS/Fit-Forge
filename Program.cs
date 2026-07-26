@@ -45,14 +45,36 @@ builder.Services.AddScoped<PersonalRecordDL>(); builder.Services.AddScoped<Strea
 builder.Services.AddScoped<SkillDL>(); builder.Services.AddScoped<InjuryDL>();
 builder.Services.AddScoped<WaterDL>(); builder.Services.AddScoped<MeasurementDL>();
 builder.Services.AddScoped<AchievementDL>(); builder.Services.AddScoped<CalendarDL>();
+builder.Services.AddScoped<NotificationDL>();
 // BL
 builder.Services.AddScoped<UserBL>(); builder.Services.AddScoped<WorkoutBL>();
 builder.Services.AddScoped<ProgramBL>(); builder.Services.AddScoped<SkillBL>();
 builder.Services.AddScoped<ProfileBL>(); builder.Services.AddScoped<AchievementBL>();
+builder.Services.AddScoped<NotificationBL>();
 // Services
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
+// NotificationBackgroundService (in-process timer) was removed — on free-tier hosts the
+// whole process (and any in-memory timer with it) gets suspended after ~15 min idle, so an
+// in-process loop can't be relied on to ever fire. Replaced by NotificationsController.Tick,
+// triggered by an external scheduler (e.g. cron-job.org) hitting the app's public URL —
+// works the same way regardless of hosting tier, since each hit both wakes the app (if
+// asleep) and runs the check.
 builder.Services.AddHttpClient<GeminiService>(c => c.Timeout = TimeSpan.FromSeconds(25));
 var app = builder.Build();
+
+// One-time visible-at-startup check — tells you immediately on deploy whether the Vapid
+// keys actually loaded, instead of only finding out 1-2 background ticks later.
+using(var scope = app.Services.CreateScope())
+{
+    var pushCheck = scope.ServiceProvider.GetRequiredService<IPushNotificationService>();
+    var startupLog = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    if(pushCheck.IsConfigured)
+        startupLog.LogInformation("Push notifications: configured, public key ends '...{Tail}'",
+            pushCheck.PublicKey.Length>=6?pushCheck.PublicKey[^6..]:pushCheck.PublicKey);
+    else
+        startupLog.LogWarning("Push notifications: NOT configured — Vapid:PublicKey/PrivateKey missing or empty. Check Vapid__PublicKey / Vapid__PrivateKey env vars.");
+}
 app.UseForwardedHeaders(new ForwardedHeadersOptions{
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
     // Render's proxy IPs aren't fixed, so clear the default restriction that would otherwise ignore the header
