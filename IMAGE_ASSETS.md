@@ -66,10 +66,12 @@ One per skill, 600×400px recommended
 7.jpg — L-Sit
 8.jpg — Human Flag
 
-## UI Assets (wwwroot/images/)
-logo.svg      — App logo (optional, currently text-based)
-favicon.ico   — Browser tab icon
-og-image.jpg  — Social share image 1200×630px
+## UI Assets
+Sidebar keeps the "FF" text logo (Views/Shared/_Layout.cshtml).
+App/PWA icons updated to the new Canva-designed logo:
+- wwwroot/icons/icon-192.png, icon-512.png, icon-maskable-512.png, icon.svg
+- wwwroot/favicon.ico — Browser tab icon
+- wwwroot/images/og-image.jpg — Social share image 1200×630px
 
 ## Free Sources
 - Unsplash (unsplash.com) — free exercise photos

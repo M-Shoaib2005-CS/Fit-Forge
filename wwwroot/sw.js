@@ -1,4 +1,4 @@
-const CACHE = 'fitforge-v5';
+const CACHE = 'fitforge-v7';
 const STATIC = [
   '/',
   '/css/app.css',
@@ -69,13 +69,12 @@ self.addEventListener('push', e => {
   const title = data.title || 'FitForge';
   const options = {
     body: data.body || '',
-    // icon-192.png is full color — fine here. It was ALSO being used as `badge`, which
-    // Android requires to be a transparent-background monochrome silhouette (it derives
-    // the small status-bar icon from the alpha channel); an opaque RGB PNG can't be used
-    // that way, which is why a generic fallback icon was showing instead. Dropping `badge`
-    // entirely rather than shipping a half-working asset — Android/Chrome supplies its own
-    // default small icon in that slot instead.
-    icon: '/icons/icon-192.png',
+    // Android/Chrome renders TWO icons if both are set: `icon` (large, right side)
+    // and `badge` (small, left side/status bar). We only want the one, left-aligned
+    // icon like native apps use — so we set `badge` (a proper transparent, white-only
+    // silhouette; Android tints this itself, which is why it must be alpha-only, not
+    // full color) and leave `icon` unset entirely so nothing renders on the right.
+    badge: '/icons/badge-96.png',
     data: { url: data.url || '/Dashboard/Index' }
   };
   // Workout-day reminders get a visible call-to-action button. Per how this is meant to
