@@ -1,4 +1,4 @@
-const CACHE = 'fitforge-v2';
+const CACHE = 'fitforge-v3';
 const STATIC = [
   '/',
   '/css/app.css',
@@ -43,4 +43,43 @@ self.addEventListener('fetch', e => {
   }
   // API/form calls: network only
   e.respondWith(fetch(e.request));
+});
+
+// ── PUSH NOTIFICATIONS ──────────────────────────────────────
+// The payload is whatever PushNotificationService.SendToUserAsync serialized:
+// { title, body, url }. If parsing ever fails (some browsers/edge cases send
+// plain text), fall back to a generic FitForge notification rather than
+// silently dropping it.
+self.addEventListener('push', e => {
+  let data = {};
+  try { data = e.data ? e.data.json() : {}; }
+  catch (err) { data = { title: 'FitForge', body: e.data ? e.data.text() : '' }; }
+
+  const title = data.title || 'FitForge';
+  const options = {
+    body: data.body || '',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    data: { url: data.url || '/Dashboard/Index' }
+  };
+  e.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Tapping the notification: focus an already-open FitForge tab if one exists
+// (rather than piling up duplicate tabs), otherwise open a new one — either
+// way landing on the Dashboard, per the notification's intended destination.
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '/Dashboard/Index';
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.navigate(url);
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) return clients.openWindow(url);
+    })
+  );
 });

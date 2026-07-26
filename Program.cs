@@ -45,12 +45,16 @@ builder.Services.AddScoped<PersonalRecordDL>(); builder.Services.AddScoped<Strea
 builder.Services.AddScoped<SkillDL>(); builder.Services.AddScoped<InjuryDL>();
 builder.Services.AddScoped<WaterDL>(); builder.Services.AddScoped<MeasurementDL>();
 builder.Services.AddScoped<AchievementDL>(); builder.Services.AddScoped<CalendarDL>();
+builder.Services.AddScoped<NotificationDL>();
 // BL
 builder.Services.AddScoped<UserBL>(); builder.Services.AddScoped<WorkoutBL>();
 builder.Services.AddScoped<ProgramBL>(); builder.Services.AddScoped<SkillBL>();
 builder.Services.AddScoped<ProfileBL>(); builder.Services.AddScoped<AchievementBL>();
+builder.Services.AddScoped<NotificationBL>();
 // Services
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
+builder.Services.AddHostedService<NotificationBackgroundService>();
 builder.Services.AddHttpClient<GeminiService>(c => c.Timeout = TimeSpan.FromSeconds(25));
 var app = builder.Build();
 app.UseForwardedHeaders(new ForwardedHeadersOptions{

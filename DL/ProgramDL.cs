@@ -77,6 +77,31 @@ namespace FitForge.DL
             return style!=null&&style!=DBNull.Value?style.ToString()!:"Adaptive";
         }
 
+        public bool CanEdit(int programId, int uid){
+            // Same rule as delete: must belong to this user, and never a preset (user_id=1).
+            var v=DB.Scalar("SELECT program_id FROM programs WHERE program_id=@p AND user_id=@u AND user_id!=1",
+                DB.P("@p",programId),DB.P("@u",uid));
+            return v!=null&&v!=DBNull.Value;
+        }
+
+        public void UpdateProgramMeta(int programId, string name, string desc, string goalType, string progStyle){
+            DB.NonQuery("UPDATE programs SET name=@n,description=@d,goal_type=@g,progression_style=@p WHERE program_id=@id",
+                DB.P("@n",name),DB.P("@d",desc),DB.P("@g",goalType),DB.P("@p",progStyle),DB.P("@id",programId));
+        }
+
+        // Same cleanup DeleteProgram does per-day (null schedule slots, drop logged sessions,
+        // drop exercises) but for a single day — used by Update, which recreates days rather
+        // than deleting the whole program.
+        public void ClearDayDependents(int dayId){
+            DB.NonQuery("UPDATE schedule_slots SET day_id=NULL WHERE day_id=@d",DB.P("@d",dayId));
+            DB.NonQuery("DELETE FROM workout_sessions WHERE day_id=@d",DB.P("@d",dayId));
+            DB.NonQuery("DELETE FROM program_day_exercises WHERE day_id=@d",DB.P("@d",dayId));
+        }
+
+        public void DeleteDaysOnly(int programId){
+            DB.NonQuery("DELETE FROM program_days WHERE program_id=@p",DB.P("@p",programId));
+        }
+
         public bool DeleteProgram(int programId, int uid){
             log.LogInformation("Deleting program {PId} for user {UId}",programId,uid);
             // Verify ownership first (never delete presets owned by user 1)

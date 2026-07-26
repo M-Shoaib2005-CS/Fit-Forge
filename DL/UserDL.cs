@@ -135,6 +135,14 @@ namespace FitForge.DL
             if(theme!="dark"&&theme!="light")theme="dark";
             DB.NonQuery("UPDATE users SET theme=@t WHERE user_id=@id",DB.P("@t",theme),DB.P("@id",uid));
         }
+        public void UpdateNotificationPref(int uid, string pref){
+            if(pref!="All"&&pref!="WorkoutOnly"&&pref!="Off")pref="All";
+            DB.NonQuery("UPDATE users SET notification_pref=@p WHERE user_id=@id",DB.P("@p",pref),DB.P("@id",uid));
+        }
+        public void UpdateReminderTime(int uid, string hhmm){
+            if(!TimeSpan.TryParse(hhmm,out var ts))ts=new TimeSpan(17,0,0);
+            DB.NonQuery("UPDATE users SET reminder_time=@t WHERE user_id=@id",DB.P("@t",ts),DB.P("@id",uid));
+        }
         public void DeleteAccount(int uid){ log.LogWarning("Deleting account {Uid}",uid); DB.NonQuery("DELETE FROM users WHERE user_id=@id",DB.P("@id",uid)); }
         public void LogWeight(int uid, decimal w, string notes){
             DB.NonQuery("INSERT INTO weight_history(user_id,weight_kg,notes) VALUES(@u,@w,@n)",DB.P("@u",uid),DB.P("@w",w),DB.P("@n",notes));
@@ -162,6 +170,12 @@ namespace FitForge.DL
             if(r.Table.Columns.Contains("longest_streak")&&r["longest_streak"]!=DBNull.Value) u.LongestStreak=Convert.ToInt32(r["longest_streak"]);
             if(r.Table.Columns.Contains("email_verified")&&r["email_verified"]!=DBNull.Value) u.EmailVerified=Convert.ToInt32(r["email_verified"])==1;
             if(r.Table.Columns.Contains("water_goal_ml")&&r["water_goal_ml"]!=DBNull.Value)   u.WaterGoalMl=Convert.ToInt32(r["water_goal_ml"]);
+            if(r.Table.Columns.Contains("notification_pref")&&r["notification_pref"]!=DBNull.Value) u.NotificationPref=r["notification_pref"].ToString()!;
+            if(r.Table.Columns.Contains("reminder_time")&&r["reminder_time"]!=DBNull.Value){
+                // MySqlConnector maps TIME to TimeSpan.
+                if(r["reminder_time"] is TimeSpan ts) u.ReminderTime=ts.ToString(@"hh\:mm");
+                else if(TimeSpan.TryParse(r["reminder_time"].ToString(),out var ts2)) u.ReminderTime=ts2.ToString(@"hh\:mm");
+            }
             return u;
         }
     }

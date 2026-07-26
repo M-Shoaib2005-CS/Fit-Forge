@@ -13,6 +13,14 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#ff5a2b" />
     <title>@ViewData["Title"] — FitForge</title>
+    @{
+        // The very first thing painted, before app.css or the Google Fonts stylesheet have
+        // even started downloading. Without this, every full-page navigation (this is a
+        // multi-page app, not an SPA) paints white for a frame or two before the real
+        // dark background loads in — the "blank flash" between Dashboard/Programs/etc.
+        string criticalBg = theme == "light" ? "#f3f0e8" : "#17181a";
+    }
+    <style>html,body{background:@criticalBg;margin:0}</style>
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -99,6 +107,21 @@
       <button class="coach-send" onclick="Coach.send()">
         <svg viewBox="0 0 24 24" fill="none"><path d="M3 11.5 20.5 3 12 20.5l-2.2-6.8L3 11.5Z" stroke="var(--accent-ink)" stroke-width="1.8" stroke-linejoin="round"/></svg>
       </button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="ff-confirm-modal" style="display:none" onclick="if(event.target===this)_ffConfirmResolve(false)">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-header">
+      <div class="modal-title" id="ff-confirm-title">Are you sure?</div>
+    </div>
+    <div class="modal-body">
+      <p id="ff-confirm-text" style="margin:0 0 16px"></p>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline" style="flex:1" onclick="_ffConfirmResolve(false)">Cancel</button>
+        <button class="btn btn-danger" id="ff-confirm-ok-btn" style="flex:1" onclick="_ffConfirmResolve(true)">Confirm</button>
+      </div>
     </div>
   </div>
 </div>
