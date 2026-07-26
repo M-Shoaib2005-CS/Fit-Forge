@@ -18,12 +18,15 @@ namespace FitForge.Services
         IServiceScopeFactory scopeFactory, ILogger<NotificationBackgroundService> log)
         : BackgroundService
     {
-        private static readonly TimeSpan TickInterval = TimeSpan.FromMinutes(30);
+        // TEMP FOR TESTING — was 30 min. Set back to TimeSpan.FromMinutes(30) once you've
+        // confirmed a real notification arrives; 1-minute ticks are just for fast feedback
+        // while debugging, not meant to run in production long-term.
+        private static readonly TimeSpan TickInterval = TimeSpan.FromMinutes(1);
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            // Give the app a minute to finish starting before the first tick.
-            try { await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken); } catch (TaskCanceledException) { return; }
+            // TEMP FOR TESTING — was 1 minute.
+            try { await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken); } catch (TaskCanceledException) { return; }
 
             while (!stoppingToken.IsCancellationRequested)
             {
