@@ -56,7 +56,7 @@ namespace FitForge.BL
                 else
                 {
                     await push.SendToUserAsync(c.UserId, "Time to train — " + c.DayName,
-                        "Your " + c.DayName + " day is on deck for today.", "/Dashboard/Index");
+                        "Your " + c.DayName + " day is on deck for today.", "/Dashboard/Index", "workout");
                 }
                 dl.MarkSent(c.UserId, "WorkoutReminder");
                 sent++;

@@ -10,7 +10,9 @@ namespace FitForge.Services
         // Sends to every device the user has subscribed on. Any endpoint the push service
         // reports as gone (404/410 — user uninstalled, cleared storage, etc.) gets cleaned
         // out of push_subscriptions so future ticks stop wasting a send on it.
-        Task SendToUserAsync(int uid, string title, string body, string url);
+        // `type` is optional and only used client-side (sw.js) to decide whether to show an
+        // action button — "workout" gets a "Start workout" button, everything else doesn't.
+        Task SendToUserAsync(int uid, string title, string body, string url, string? type = null);
         bool IsConfigured { get; }
         string PublicKey { get; }
     }
@@ -40,7 +42,7 @@ namespace FitForge.Services
         public bool IsConfigured => !string.IsNullOrWhiteSpace(_publicKey) && !string.IsNullOrWhiteSpace(_privateKey);
         public string PublicKey => _publicKey ?? "";
 
-        public async Task SendToUserAsync(int uid, string title, string body, string url)
+        public async Task SendToUserAsync(int uid, string title, string body, string url, string? type = null)
         {
             if (!IsConfigured)
             {
@@ -49,7 +51,7 @@ namespace FitForge.Services
             }
 
             var vapid = new VapidDetails(_subject, _publicKey, _privateKey);
-            var payload = System.Text.Json.JsonSerializer.Serialize(new { title, body, url });
+            var payload = System.Text.Json.JsonSerializer.Serialize(new { title, body, url, type });
 
             foreach (var sub in _dl.GetSubscriptionsForUser(uid))
             {

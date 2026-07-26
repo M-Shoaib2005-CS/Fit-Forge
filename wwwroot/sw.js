@@ -47,7 +47,7 @@ self.addEventListener('fetch', e => {
 
 // ── PUSH NOTIFICATIONS ──────────────────────────────────────
 // The payload is whatever PushNotificationService.SendToUserAsync serialized:
-// { title, body, url }. If parsing ever fails (some browsers/edge cases send
+// { title, body, url, type }. If parsing ever fails (some browsers/edge cases send
 // plain text), fall back to a generic FitForge notification rather than
 // silently dropping it.
 self.addEventListener('push', e => {
@@ -58,16 +58,27 @@ self.addEventListener('push', e => {
   const title = data.title || 'FitForge';
   const options = {
     body: data.body || '',
+    // icon-192.png is full color — fine here. It was ALSO being used as `badge`, which
+    // Android requires to be a transparent-background monochrome silhouette (it derives
+    // the small status-bar icon from the alpha channel); an opaque RGB PNG can't be used
+    // that way, which is why a generic fallback icon was showing instead. Dropping `badge`
+    // entirely rather than shipping a half-working asset — Android/Chrome supplies its own
+    // default small icon in that slot instead.
     icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
     data: { url: data.url || '/Dashboard/Index' }
   };
+  // Workout-day reminders get a visible call-to-action button. Per how this is meant to
+  // work, tapping it lands on the Dashboard exactly like tapping the notification body
+  // does — it's a visual nudge, not a shortcut that skips a step.
+  if (data.type === 'workout') {
+    options.actions = [{ action: 'open', title: 'Start workout' }];
+  }
   e.waitUntil(self.registration.showNotification(title, options));
 });
 
-// Tapping the notification: focus an already-open FitForge tab if one exists
-// (rather than piling up duplicate tabs), otherwise open a new one — either
-// way landing on the Dashboard, per the notification's intended destination.
+// Tapping the notification (body OR the action button): focus an already-open FitForge
+// tab if one exists (rather than piling up duplicate tabs), otherwise open a new one —
+// either way landing on the Dashboard, per the notification's intended destination.
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   const url = (e.notification.data && e.notification.data.url) || '/Dashboard/Index';
