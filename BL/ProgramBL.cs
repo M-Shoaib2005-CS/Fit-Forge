@@ -74,6 +74,74 @@ namespace FitForge.BL
             return (true, msg, pid);
         }
 
+        // Edits an existing program the user owns. Days/exercises are recreated (same simple,
+        // safe pattern CreateProgram uses) rather than diffed in place, which means their
+        // underlying day_ids change. Two things depend on day_id staying meaningful — the
+        // user's weekly schedule and logged workout history for those specific days — so:
+        //   - Schedule: we capture which weekdays pointed at this program's days *before*
+        //     recreating them, then remap those same weekdays onto the new day_ids by
+        //     matching day order, so a scheduled program doesn't silently fall off the week.
+        //   - Logged history: like DeleteProgram, sessions logged against the old days are
+        //     cleared (session_id on personal_records is nulled by the DB, so PRs survive).
+        //     There isn't a safe way to keep session history pointing at a day whose exercises
+        //     may have just changed entirely, so this trade-off matches the existing delete
+        //     behavior rather than inventing a new, riskier one.
+        public (bool ok, string msg) UpdateProgram(int uid, UpdateProgramReq req)
+        {
+            if (string.IsNullOrWhiteSpace(req.Name))     return (false, "Program name required");
+            if (req.Days == null || req.Days.Count == 0) return (false, "Add at least one day");
+            if (!dl.CanEdit(req.ProgramId, uid))          return (false, "Could not update — must be your own program");
+
+            var oldDays = dl.GetDaysForProgram(req.ProgramId);
+            var sched   = schedDL.GetActiveForUser(uid);
+
+            // Which weekday each old day of *this* program was scheduled on, so we can
+            // reapply the same weekdays to the new day_ids after recreation.
+            var weekDayToOldOrder = new List<(int weekDay, int order)>();
+            if (sched != null)
+                foreach (var slot in sched.Slots)
+                    if (slot.DayId.HasValue)
+                    {
+                        var match = oldDays.FirstOrDefault(d => d.DayId == slot.DayId.Value);
+                        if (match != null) weekDayToOldOrder.Add((slot.WeekDay, match.DayOrder));
+                    }
+
+            foreach (var d in oldDays) dl.ClearDayDependents(d.DayId);
+            dl.DeleteDaysOnly(req.ProgramId);
+
+            dl.UpdateProgramMeta(req.ProgramId, req.Name.Trim(), req.Description ?? "", req.GoalType, req.ProgressionStyle);
+
+            var newOrderToDayId = new Dictionary<int, int>();
+            for (int i = 0; i < req.Days.Count; i++)
+            {
+                var d   = req.Days[i];
+                int did = dl.AddDay(req.ProgramId, i + 1, d.Name.Trim(), d.DayType);
+                newOrderToDayId[i + 1] = did;
+                if (d.DayType == "Workout" && d.Exercises != null)
+                    for (int j = 0; j < d.Exercises.Count; j++)
+                    {
+                        var e = d.Exercises[j];
+                        dl.AddExercise(did, e.ExerciseId, j + 1, e.Sets, e.Reps, e.WeightKg, e.RestSeconds);
+                    }
+            }
+
+            if (sched != null && weekDayToOldOrder.Count > 0)
+            {
+                var fullSlots = sched.Slots.Select(s => new SlotReq { WeekDay = s.WeekDay, DayId = s.DayId }).ToList();
+                foreach (var (weekDay, oldOrder) in weekDayToOldOrder)
+                {
+                    var slot = fullSlots.First(s => s.WeekDay == weekDay);
+                    // If the edited program now has fewer days than before, a weekday that
+                    // pointed at a day past the new count just falls back to Rest — better
+                    // than pointing at a day that no longer exists.
+                    slot.DayId = newOrderToDayId.TryGetValue(oldOrder, out var nd) ? nd : null;
+                }
+                schedDL.SaveSlots(sched.ScheduleId, fullSlots);
+            }
+
+            return (true, "Program updated!");
+        }
+
         public (bool ok, string msg) DeleteProgram(int uid, int programId)
         {
             bool ok = dl.DeleteProgram(programId, uid);

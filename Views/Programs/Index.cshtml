@@ -7,7 +7,7 @@
     <button class="tab-pill active" onclick="switchTab('myprograms',this)">My Programs</button>
     <button class="tab-pill" onclick="switchTab('presets',this)">Presets</button>
     <button class="tab-pill" onclick="switchTab('schedule',this)">Weekly Schedule</button>
-    <button class="tab-pill" onclick="switchTab('builder',this)">+ Build Program</button>
+    <button class="tab-pill" id="tab-pill-builder" onclick="switchTab('builder',this);cancelEditProgram()">+ Build Program</button>
   </div>
 </div>
 <div id="tab-myprograms">
@@ -28,6 +28,7 @@
           <div class="program-meta text-muted">@p.ProgressionStyle progression · @p.CreatedAt.ToString("MMM d, yyyy")</div>
           <div class="program-actions mt-1">
             <button class="btn btn-sm btn-outline" onclick="viewProgram(@p.ProgramId)">View Days</button>
+            <button class="btn btn-sm btn-outline" onclick="editProgram(@p.ProgramId)">Edit</button>
             <button class="btn btn-sm btn-danger-outline" onclick="deleteProgram(@p.ProgramId,'@p.Name')">Delete</button>
           </div>
         </div>
@@ -81,7 +82,7 @@
 </div>
 <div id="tab-builder" style="display:none">
   <div class="card">
-    <div class="section-title">Build a New Program</div>
+    <div class="section-title" id="builder-title">Build a New Program</div>
     <div class="grid-2">
       <div class="form-group">
         <label>PROGRAM NAME</label>
@@ -127,7 +128,8 @@
     <div class="builder-actions">
       <button class="btn btn-outline" onclick="addDay('Workout')">+ Workout Day</button>
       <button class="btn btn-outline" onclick="addDay('Rest')">+ Rest Day</button>
-      <button class="btn btn-solid" onclick="saveProgram()">Save Program</button>
+      <button class="btn btn-outline" id="builder-cancel-btn" style="display:none" onclick="cancelEditProgram()">Cancel</button>
+      <button class="btn btn-solid" id="builder-save-btn" onclick="saveProgram()">Save Program</button>
     </div>
   </div>
 </div>
@@ -151,6 +153,7 @@ var ALL_MUSCLE_GROUPS=@Html.Raw(System.Text.Json.JsonSerializer.Serialize(
   Model.MuscleGroups.Select(g=>new{id=g.GroupId,name=g.Name}),
   new System.Text.Json.JsonSerializerOptions{PropertyNamingPolicy=System.Text.Json.JsonNamingPolicy.CamelCase}));
 var dayCount=0;
+var editingProgramId=null; // null = building a new program; set = editing this existing one
 
 function switchTab(tab,btn){
   ['myprograms','presets','schedule','builder'].forEach(t=>document.getElementById('tab-'+t).style.display='none');
@@ -253,6 +256,72 @@ function updateExerciseInputs(dayIdx, exIdx, sel){
   if(wDiv)wDiv.style.display=(mode==='reps_weight'?'':'none');
 }
 
+// ── EDIT PROGRAM ────────────────────────────────────────────
+function resetBuilderForm(){
+  document.getElementById('b-name').value='';
+  document.getElementById('b-desc').value='';
+  document.getElementById('b-goal').value='General';
+  var def=document.querySelector('input[name="progression"][value="Adaptive"]');
+  if(def)def.checked=true;
+  document.getElementById('days-container').innerHTML='';
+  dayCount=0;
+}
+
+function cancelEditProgram(){
+  if(editingProgramId===null)return; // already in create mode — nothing to cancel
+  editingProgramId=null;
+  document.getElementById('builder-title').textContent='Build a New Program';
+  document.getElementById('builder-save-btn').textContent='Save Program';
+  document.getElementById('builder-cancel-btn').style.display='none';
+  resetBuilderForm();
+}
+
+function editProgram(pid){
+  fetch('/Programs/GetFull?programId='+pid).then(function(r){return r.json();}).then(function(d){
+    if(!d.success||!d.program){showToast('Could not load that program','danger');return;}
+    var p=d.program;
+    resetBuilderForm();
+    editingProgramId=pid;
+
+    document.getElementById('b-name').value=p.name||'';
+    document.getElementById('b-desc').value=p.description||'';
+    document.getElementById('b-goal').value=p.goalType||'General';
+    var radio=document.querySelector('input[name="progression"][value="'+(p.progressionStyle||'Adaptive')+'"]');
+    if(radio)radio.checked=true;
+
+    (p.days||[]).forEach(function(day){
+      addDay(day.dayType);
+      var dayIdx=dayCount; // addDay just incremented this to the day it created
+      var nameInput=document.querySelector('#day-'+dayIdx+' .day-name-input');
+      if(nameInput)nameInput.value=day.name;
+      if(day.dayType==='Workout'&&day.exercises&&day.exercises.length){
+        day.exercises.forEach(function(ex){
+          addExerciseToDay(dayIdx);
+          var container=document.getElementById('day-exs-'+dayIdx);
+          var exIdx=container.children.length; // the row just added
+          var row=document.getElementById('bex-'+dayIdx+'-'+exIdx);
+          var sel=row.querySelector('.bex-select');
+          sel.value=ex.exerciseId;
+          updateExerciseInputs(dayIdx,exIdx,sel);
+          row.querySelector('.bex-sets').value=ex.targetSets;
+          row.querySelector('.bex-reps').value=ex.targetReps;
+          if(ex.targetWeightKg!=null){
+            var w=row.querySelector('.bex-weight');
+            if(w)w.value=ex.targetWeightKg;
+          }
+          row.querySelector('.bex-rest').value=ex.restSeconds;
+        });
+      }
+    });
+
+    document.getElementById('builder-title').textContent='Edit "'+p.name+'"';
+    document.getElementById('builder-save-btn').textContent='Save Changes';
+    document.getElementById('builder-cancel-btn').style.display='';
+    switchTab('builder',document.getElementById('tab-pill-builder'));
+    window.scrollTo({top:0,behavior:'smooth'});
+  }).catch(function(){showToast('Network error loading program','danger');});
+}
+
 // ── AUTO-SCHEDULE HELPER ──────────────────────────────────────
 // Maps workout days from a program across Mon–Sun, then saves schedule.
 function autoScheduleFromDays(days, label){
@@ -314,6 +383,25 @@ function saveProgram(){
     days.push({name:dayName,dayType:type,exercises:exs});
   });
   if(!days.length){showToast('Add at least one day','danger');return;}
+
+  if(editingProgramId!==null){
+    // Editing an existing program: the backend already remaps the user's weekly schedule
+    // onto the new day ids for us, so we must NOT re-run autoScheduleFromDays here — that
+    // would overwrite whatever custom weekly layout they already had with a fresh Mon–Sun
+    // default, silently undoing their schedule.
+    showToast('Saving changes…','success');
+    fetch('/Programs/Update',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({programId:editingProgramId,name:name,description:document.getElementById('b-desc').value,
+        goalType:document.getElementById('b-goal').value,progressionStyle:prog,days:days})})
+    .then(function(r){return r.json();}).then(function(d){
+      if(!d.success){showToast(d.msg||'Error updating program','danger');return;}
+      showToast('"'+name+'" updated ✓','success');
+      cancelEditProgram();
+      setTimeout(function(){location.reload();},700);
+    }).catch(function(){showToast('Network error — could not update','danger');});
+    return;
+  }
+
   showToast('Saving program…','success');
   fetch('/Programs/Create',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({name:name,description:document.getElementById('b-desc').value,
@@ -418,22 +506,24 @@ function usePreset(pid, name){
 
 // ── DELETE PROGRAM ────────────────────────────────────────────
 function deleteProgram(pid, name){
-  if(!confirm('Delete "'+name+'"? This cannot be undone.'))return;
-  fetch('/Programs/Delete',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(pid)})
-  .then(function(r){
-    if(!r.ok){showToast('Server error — could not delete','danger');return null;}
-    return r.json();
-  }).then(function(d){
-    if(!d)return;
-    if(d.success){
-      showToast('"'+name+'" deleted','success');
-      setTimeout(function(){location.reload();},700);
-    } else {
-      showToast(d.msg||'Could not delete program','danger');
-    }
-  }).catch(function(){
-    showToast('Network error — could not delete','danger');
+  ffConfirm('Delete "'+name+'"?', 'This cannot be undone.').then(function(ok){
+    if(!ok)return;
+    fetch('/Programs/Delete',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(pid)})
+    .then(function(r){
+      if(!r.ok){showToast('Server error — could not delete','danger');return null;}
+      return r.json();
+    }).then(function(d){
+      if(!d)return;
+      if(d.success){
+        showToast('"'+name+'" deleted','success');
+        setTimeout(function(){location.reload();},700);
+      } else {
+        showToast(d.msg||'Could not delete program','danger');
+      }
+    }).catch(function(){
+      showToast('Network error — could not delete','danger');
+    });
   });
 }
 </script>

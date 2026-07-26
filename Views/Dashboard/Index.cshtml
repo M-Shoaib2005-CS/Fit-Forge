@@ -76,6 +76,13 @@
             ⚡ Session active — @Model.TodaySession.StartedAt.ToString("HH:mm")
           </div>
           <a href="/Workouts/Active?sessionId=@Model.TodaySession.SessionId&dayId=@Model.TodaySession.DayId" class="btn btn-solid w-100">Continue →</a>
+        } else if(Model.TodayCompletedSession!=null){
+          <div class="session-active-banner" style="background:var(--bg-success,rgba(99,153,34,.15));color:var(--text-success,#639922)">
+            ✓ Done for today — finished at @Model.TodayCompletedSession.FinishedAt?.ToString("HH:mm")
+            @if(Model.TodayCompletedSession.DurationSecs.HasValue){<span> · @(Math.Round(Model.TodayCompletedSession.DurationSecs.Value/60.0))m</span>}
+            @if(Model.TodayCompletedSession.TotalSets>0){<span> · @Model.TodayCompletedSession.TotalSets sets logged</span>}
+          </div>
+          <button class="btn btn-outline w-100" onclick="startSession(@(Model.TodaySlot?.DayId??0))">Log another session</button>
         } else {
           <button class="btn btn-solid w-100" onclick="startSession(@(Model.TodaySlot?.DayId??0))">▶ Start Session</button>
         }

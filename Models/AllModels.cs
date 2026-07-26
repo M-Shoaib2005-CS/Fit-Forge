@@ -21,6 +21,9 @@ namespace FitForge.Models
         public int LongestStreak { get; set; }
         public bool EmailVerified { get; set; }
         public int WaterGoalMl { get; set; } = 2500;
+        public string NotificationPref { get; set; } = "All";
+        public string ReminderTime { get; set; } = "17:00"; // "HH:mm", user's local wall-clock time
+        public string Timezone { get; set; } = "UTC"; // IANA id, e.g. "Asia/Karachi"
         public string Initials => string.Concat(Name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(w => w[0])).ToUpper();
         public double BMI => Height > 0 ? Math.Round(Weight / Math.Pow(Height / 100.0, 2), 1) : 0;
         public string BMICat => BMI < 18.5 ? "Underweight" : BMI < 25 ? "Normal" : BMI < 30 ? "Overweight" : "Obese";
@@ -389,6 +392,7 @@ namespace FitForge.Models
     {
         public UserModel User { get; set; } = new();
         public SessionModel? TodaySession { get; set; }
+        public SessionModel? TodayCompletedSession { get; set; }
         public ScheduleSlotModel? TodaySlot { get; set; }
         public ProgramDayModel? TodayDay { get; set; }
         public List<ActiveSessionExerciseModel> TodayExercises { get; set; } = new();
@@ -554,6 +558,36 @@ namespace FitForge.Models
         public string GoalType { get; set; } = "General";
         public string ProgressionStyle { get; set; } = "Adaptive";
         public List<DayReq> Days { get; set; } = new();
+    }
+
+    public class UpdateProgramReq
+    {
+        public int ProgramId { get; set; }
+        public string Name { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string GoalType { get; set; } = "General";
+        public string ProgressionStyle { get; set; } = "Adaptive";
+        public List<DayReq> Days { get; set; } = new();
+    }
+
+    // ── Notifications ─────────────────────────────────────────
+    public class PushSubscriptionReq
+    {
+        public string Endpoint { get; set; } = "";
+        public string P256dh { get; set; } = "";
+        public string Auth { get; set; } = "";
+        public string? Timezone { get; set; } // IANA id from the browser, e.g. "Asia/Karachi"
+    }
+
+    public class NotificationPrefReq
+    {
+        // "All" | "WorkoutOnly" | "Off"
+        public string Pref { get; set; } = "All";
+    }
+
+    public class ReminderTimeReq
+    {
+        public string Time { get; set; } = "17:00"; // "HH:mm"
     }
 
     public class DayReq

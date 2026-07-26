@@ -17,6 +17,13 @@ namespace FitForge.Controllers
         }
 
         [HttpPost,IgnoreAntiforgeryToken]
+        public IActionResult Update([FromBody]UpdateProgramReq req){
+            if(Uid==null)return Json(new{success=false,msg="Not logged in"});
+            var(ok,msg)=bl.UpdateProgram(Uid.Value,req);
+            return Json(new{success=ok,msg,programId=req.ProgramId});
+        }
+
+        [HttpPost,IgnoreAntiforgeryToken]
         public IActionResult Delete([FromBody]int programId){
             if(Uid==null)return Json(new{success=false});
             var(ok,msg)=bl.DeleteProgram(Uid.Value,programId);

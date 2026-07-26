@@ -14,6 +14,7 @@ namespace FitForge.BL
         {
             var todaySlot   = schedDL.GetTodaySlot(uid);
             var openSession = wDL.GetOpenSession(uid);
+            SessionModel? completedToday = null;
             ProgramDayModel? todayDay = null;
             var todayExercises = new List<ActiveSessionExerciseModel>();
             bool isRest = false;
@@ -30,6 +31,10 @@ namespace FitForge.BL
                 {
                     todayDay = LoadDayWithTargets(uid, todaySlot.DayId.Value);
                     todayExercises = BuildActiveExercises(uid, todayDay);
+                    // Only relevant once there's no session currently open — an open session
+                    // already takes priority in the view (shows "Continue" instead).
+                    if (openSession == null)
+                        completedToday = wDL.GetCompletedToday(uid, todaySlot.DayId.Value);
                 }
             }
 
@@ -41,6 +46,7 @@ namespace FitForge.BL
             {
                 User            = user,
                 TodaySession    = openSession,
+                TodayCompletedSession = completedToday,
                 TodaySlot       = todaySlot,
                 TodayDay        = todayDay,
                 TodayExercises  = todayExercises,

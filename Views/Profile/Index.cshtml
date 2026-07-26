@@ -367,6 +367,22 @@
   </div>
 
   <div class="card mb-2">
+    <div class="section-title">Notifications</div>
+    <p class="text-muted mb-1" style="font-size:12.5px">Workout reminders, coach encouragement, and injury check-ins.</p>
+    <button class="btn btn-outline w-100 mb-1" id="notif-toggle-btn" onclick="toggleNotifications()">Checking status…</button>
+    <label class="text-muted" style="font-size:12.5px;display:block;margin-bottom:4px">What to send</label>
+    <select class="form-input mb-1" id="notif-pref-select" onchange="saveNotificationPref(this.value)">
+      <option value="All" selected="@(Model.User.NotificationPref=="All" ? "selected" : null)">All notifications</option>
+      <option value="WorkoutOnly" selected="@(Model.User.NotificationPref=="WorkoutOnly" ? "selected" : null)">Workout reminders only</option>
+      <option value="Off" selected="@(Model.User.NotificationPref=="Off" ? "selected" : null)">Off</option>
+    </select>
+    <label class="text-muted" style="font-size:12.5px;display:block;margin-bottom:4px">Daily reminder time</label>
+    <input type="time" class="form-input" id="notif-time-input" value="@Model.User.ReminderTime"
+           onchange="saveReminderTime(this.value)" />
+    <p class="text-muted" style="font-size:11.5px;margin:4px 0 0">On workout days this reminds you to train; on rest days it just says so.</p>
+  </div>
+
+  <div class="card mb-2">
     <div class="card mb-2">
     <div class="section-title">Need a refresher?</div>
     <p class="text-muted mb-1" style="font-size:12.5px">Replay the guided walkthrough from the Dashboard.</p>
@@ -472,6 +488,47 @@ function setTheme(t){
   fetch('/Profile/SetTheme',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({theme:t})})
     .then(()=>{ document.getElementById('html-root').setAttribute('data-theme',t); showToast('Theme updated','success'); });
 }
+
+// ── Notifications ──────────────────────────────────────────────
+function refreshNotifToggleBtn(){
+  var btn=document.getElementById('notif-toggle-btn');
+  if(!btn||typeof getPushSubscriptionStatus!=='function')return;
+  getPushSubscriptionStatus().then(function(status){
+    if(status==='unsupported'){
+      btn.textContent='Not supported on this browser';
+      btn.disabled=true;
+    } else if(status==='enabled'){
+      btn.textContent='Notifications enabled — tap to turn off';
+      btn.className='btn btn-solid w-100 mb-1';
+    } else {
+      btn.textContent='Enable notifications on this device';
+      btn.className='btn btn-outline w-100 mb-1';
+    }
+  });
+}
+function toggleNotifications(){
+  var btn=document.getElementById('notif-toggle-btn');
+  getPushSubscriptionStatus().then(function(status){
+    var action = status==='enabled' ? disablePushNotifications() : enablePushNotifications();
+    action.then(function(){ refreshNotifToggleBtn(); });
+  });
+}
+function saveNotificationPref(pref){
+  fetch('/Notifications/SavePref',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pref:pref})})
+    .then(function(r){return r.json();}).then(function(d){
+      if(d.success)showToast('Notification preference saved','success');
+      else showToast(d.msg||'Could not save preference','danger');
+    }).catch(function(){showToast('Network error saving preference','danger');});
+}
+function saveReminderTime(time){
+  fetch('/Notifications/SaveReminderTime',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({time:time})})
+    .then(function(r){return r.json();}).then(function(d){
+      if(d.success)showToast('Reminder time saved','success');
+      else showToast(d.msg||'Could not save reminder time','danger');
+    }).catch(function(){showToast('Network error saving reminder time','danger');});
+}
+document.addEventListener('DOMContentLoaded', refreshNotifToggleBtn);
+if(document.readyState!=='loading') refreshNotifToggleBtn();
 
 // ── Injury ─────────────────────────────────────────────────────
 function openInjuryModal(){
