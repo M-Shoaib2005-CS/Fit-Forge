@@ -149,7 +149,15 @@ namespace FitForge.DL
             // otherwise silently break the local-time math later at send time.
             try{ TimeZoneInfo.FindSystemTimeZoneById(tz); }
             catch{ return; }
-            DB.NonQuery("UPDATE users SET timezone=@tz WHERE user_id=@id",DB.P("@tz",tz),DB.P("@id",uid));
+            try{
+                DB.NonQuery("UPDATE users SET timezone=@tz WHERE user_id=@id",DB.P("@tz",tz),DB.P("@id",uid));
+            }catch{
+                // Timezone accuracy is a nice-to-have for reminder timing — it should never
+                // be able to take down the actual subscribe flow (e.g. if a migration step
+                // was missed and the column doesn't exist yet). Swallow and move on; the
+                // subscription itself still saves fine, reminders just fall back to UTC
+                // comparison until this succeeds on a later subscribe/resubscribe.
+            }
         }
         public void DeleteAccount(int uid){ log.LogWarning("Deleting account {Uid}",uid); DB.NonQuery("DELETE FROM users WHERE user_id=@id",DB.P("@id",uid)); }
         public void LogWeight(int uid, decimal w, string notes){
