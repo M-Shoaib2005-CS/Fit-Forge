@@ -24,6 +24,7 @@ namespace FitForge.Models
         public string NotificationPref { get; set; } = "All";
         public string ReminderTime { get; set; } = "17:00"; // "HH:mm", user's local wall-clock time
         public string Timezone { get; set; } = "UTC"; // IANA id, e.g. "Asia/Karachi"
+        public string CoachName { get; set; } = "Coach"; // user-customizable name for the in-app AI coach
         public string Initials => string.Concat(Name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(w => w[0])).ToUpper();
         public double BMI => Height > 0 ? Math.Round(Weight / Math.Pow(Height / 100.0, 2), 1) : 0;
         public string BMICat => BMI < 18.5 ? "Underweight" : BMI < 25 ? "Normal" : BMI < 30 ? "Overweight" : "Obese";
@@ -526,6 +527,7 @@ namespace FitForge.Models
 
     // ── AJAX Request Models ───────────────────────────────────
     public class ThemeReq { public string Theme { get; set; } = "dark"; }
+    public class CoachNameReq { public string Name { get; set; } = "Coach"; }
     public class SkillActionReq { public int SkillId { get; set; } }
     public class StartSessionReq { public int DayId { get; set; } }
     public class LogInjuryReq { public int PartId { get; set; } public int CategoryId { get; set; } public string Notes { get; set; } = ""; }

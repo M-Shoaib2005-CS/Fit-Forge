@@ -27,6 +27,11 @@ namespace FitForge.Controllers
             // for workout logging); the coach should respect the exact same data when proposing
             // programs, not just rely on whatever was said earlier in this one conversation.
             string? userContext = null;
+            var currentUser = uDL.GetById(Uid.Value);
+            if (currentUser != null && !string.IsNullOrWhiteSpace(currentUser.CoachName) && currentUser.CoachName != "Coach")
+            {
+                userContext = $"This user has named you '{currentUser.CoachName}'. Respond to that name if asked what you're called, and sign off in that persona — you're still the same in-app coach otherwise.";
+            }
             try
             {
                 var activeInjuries = injuryDL.GetActiveForUser(Uid.Value);
@@ -38,7 +43,8 @@ namespace FitForge.Controllers
                         ? string.Join("; ", flagged.Select(f => $"#{f.ExerciseId} {f.ExerciseName}" +
                             (f.AlternativeId.HasValue ? $" → use #{f.AlternativeId} {f.AlternativeName} instead" : " → avoid, pick a different catalog exercise")))
                         : "none of the catalog exercises are specifically flagged, but use judgment around the affected area";
-                    userContext = $"Active injuries logged for this user: {injuryList}. Exercises flagged risky given those injuries: {flagList}.";
+                    string injuryContext = $"Active injuries logged for this user: {injuryList}. Exercises flagged risky given those injuries: {flagList}.";
+                    userContext = userContext == null ? injuryContext : userContext + " " + injuryContext;
                 }
             }
             catch (Exception ex)

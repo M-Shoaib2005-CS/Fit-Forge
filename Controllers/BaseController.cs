@@ -23,7 +23,7 @@ namespace FitForge.Controllers
             }
         }
         public override void OnActionExecuting(ActionExecutingContext ctx){
-            if(Uid.HasValue){var u=userDL.GetById(Uid.Value);if(u!=null)ViewData["UserTheme"]=u.Theme;}
+            if(Uid.HasValue){var u=userDL.GetById(Uid.Value);if(u!=null){ViewData["UserTheme"]=u.Theme;ViewData["CoachName"]=u.CoachName;}}
             base.OnActionExecuting(ctx);
         }
     }

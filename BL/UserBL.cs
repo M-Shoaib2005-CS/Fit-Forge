@@ -42,6 +42,7 @@ namespace FitForge.BL
             return(true,"");
         }
         public void UpdateTheme(int uid,string theme)=>dl.UpdateTheme(uid,theme);
+        public void UpdateCoachName(int uid,string name)=>dl.UpdateCoachName(uid,name);
         public (bool ok,string msg) UpdatePassword(int uid,string cur,string newPw,string confirm){
             if(newPw!=confirm)return(false,"Passwords do not match");
             if(newPw.Length<8)return(false,"Minimum 8 characters");

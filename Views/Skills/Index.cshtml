@@ -4,17 +4,19 @@
 <div class="page-header">
   <div><div class="eyebrow">CALISTHENICS</div><h1 class="page-title">Skill Tree</h1></div>
 </div>
-<p class="text-muted mb-2">Progressive skill unlocks based on your strength. Log max reps in Workouts to meet requirements.</p>
+<p class="text-muted mb-2" data-tour="skills-intro">Progressive skill unlocks based on your strength. Log max reps in Workouts to meet requirements.</p>
 
+@{ var isFirstCategory = true; }
 @foreach(var cat in Model.Skills.GroupBy(s=>s.Category).OrderBy(g=>g.Key)){
-  <div class="skill-category">
+  <div class="skill-category" data-tour="@(isFirstCategory ? "skill-category" : null)">
     <div class="section-title">@cat.Key</div>
     <div class="skill-grid">
+      @{ var isFirstCard = isFirstCategory; }
       @foreach(var sk in cat){
         var cardCls = "skill-card";
         if(sk.IsUnlocked) cardCls += " skill-unlocked";
         if(sk.IsMastered) cardCls += " skill-mastered";
-        <div class="@cardCls" onclick="openSkill(@sk.SkillId)">
+        <div class="@cardCls" data-tour="@(isFirstCard ? "skill-card" : null)" onclick="openSkill(@sk.SkillId)">
           <div class="skill-card-top">
             <div class="badge-@(sk.Difficulty.ToLower()) skill-diff-badge">@sk.Difficulty</div>
             @if(sk.IsMastered){
@@ -55,9 +57,11 @@
             </div>
           }
         </div>
+        @{ isFirstCard = false; }
       }
     </div>
   </div>
+  @{ isFirstCategory = false; }
 }
 <div class="modal-backdrop" id="skill-modal" style="display:none" onclick="if(event.target===this)closeSkill()">
   <div class="modal modal-large">
@@ -168,5 +172,20 @@ function advanceStep(id){
     if(d.success)setTimeout(function(){location.reload();},900);
   });
 }
+
+// ── Skills-page tour ─────────────────────────────────────────
+var FF_UID = @(Context.Session.GetInt32("uid") ?? 0);
+(function(){
+  var tourParam = new URLSearchParams(location.search).get('tour');
+  var forceTour = tourParam === 'skills';
+  if(forceTour || !FFTour.hasSeen(FF_UID, 'skills')){
+    setTimeout(function(){
+      FFTour.start([
+        { selector: '[data-tour="skill-category"]', title: 'Skill Categories', text: "Skills are grouped by movement type — push, pull, legs, and so on. Each one is its own progression line." },
+        { selector: '[data-tour="skill-card"]', title: 'A Skill Card', text: "Locked until you meet the reps/hold requirement in Workouts. Once unlocked, the ring shows progress through its steps — tap a card any time for the full breakdown." }
+      ], FF_UID, 'skills', { lastLabel: 'Done' });
+    }, 700);
+  }
+})();
 </script>
 }

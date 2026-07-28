@@ -84,7 +84,8 @@
 </div>
 
 <!-- AI Coach: floating orb + chat panel (global, follows theme/accent automatically) -->
-<div class="coach-orb" id="coach-orb" onclick="Coach.open()" title="Ask the coach">
+@{ string coachName = ViewData["CoachName"]?.ToString(); if(string.IsNullOrWhiteSpace(coachName)) coachName = "Coach"; }
+<div class="coach-orb" id="coach-orb" onclick="Coach.open()" title="Ask @coachName" data-coach-name="@coachName">
     <svg viewBox="0 0 24 24" fill="none"><path d="M12 2a5 5 0 0 0-5 5v2.05A6 6 0 0 0 3 15v1a1 1 0 0 0 1 1h1.17A3 3 0 0 0 8 19.83V21a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-1.17A3 3 0 0 0 18.83 17H20a1 1 0 0 0 1-1v-1a6 6 0 0 0-4-5.66V7a5 5 0 0 0-5-5Zm-2 9.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Zm4 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Z" fill="var(--accent-ink)"/></svg>
 </div>
 
@@ -95,14 +96,14 @@
         <svg viewBox="0 0 24 24" fill="none"><path d="M12 2a5 5 0 0 0-5 5v2.05A6 6 0 0 0 3 15v1a1 1 0 0 0 1 1h1.17A3 3 0 0 0 8 19.83V21a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-1.17A3 3 0 0 0 18.83 17H20a1 1 0 0 0 1-1v-1a6 6 0 0 0-4-5.66V7a5 5 0 0 0-5-5Zm-2 9.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Zm4 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Z" fill="var(--accent-ink)"/></svg>
       </div>
       <div>
-        <div class="coach-title">Coach</div>
+        <div class="coach-title">@coachName</div>
         <div class="coach-sub">Online</div>
       </div>
       <button class="coach-close" onclick="Coach.close()">✕</button>
     </div>
     <div class="coach-body" id="coach-body"></div>
     <div class="coach-input-row">
-      <input class="coach-input" id="coach-input" placeholder="Ask or tell the coach something…" onkeydown="if(event.key==='Enter')Coach.send()">
+      <input class="coach-input" id="coach-input" placeholder="Ask or tell @coachName something…" onkeydown="if(event.key==='Enter')Coach.send()">
       <button class="coach-send" onclick="Coach.send()">
         <svg viewBox="0 0 24 24" fill="none"><path d="M3 11.5 20.5 3 12 20.5l-2.2-6.8L3 11.5Z" stroke="var(--accent-ink)" stroke-width="1.8" stroke-linejoin="round"/></svg>
       </button>

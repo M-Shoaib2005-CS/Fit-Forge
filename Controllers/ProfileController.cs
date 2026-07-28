@@ -55,6 +55,13 @@ namespace FitForge.Controllers
             uBL.UpdateTheme(Uid.Value,req.Theme); return Json(new{success=true});
         }
         [HttpPost,IgnoreAntiforgeryToken]
+        public IActionResult SetCoachName([FromBody]CoachNameReq req){
+            if(Uid==null)return Json(new{success=false});
+            var clean = (req.Name ?? "").Trim();
+            uBL.UpdateCoachName(Uid.Value, clean);
+            return Json(new{success=true, name = clean.Length==0 ? "Coach" : (clean.Length>30 ? clean.Substring(0,30) : clean)});
+        }
+        [HttpPost,IgnoreAntiforgeryToken]
         public IActionResult LogInjury([FromBody]LogInjuryReq req){
             if(Uid==null)return Json(new{success=false});
             var(ok,msg)=bl.LogInjury(Uid.Value,req);

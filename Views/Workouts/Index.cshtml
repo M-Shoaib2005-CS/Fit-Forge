@@ -7,14 +7,14 @@
 
 <!-- ── TABS ────────────────────────────────────────────────── -->
 <div class="tab-bar mb-2">
-  <button class="tab-pill active" onclick="switchTab('history',this)">Calendar</button>
-  <button class="tab-pill"        onclick="switchTab('prs',this)">PRs</button>
-  <button class="tab-pill"        onclick="switchTab('badges',this)">Badges</button>
+  <button class="tab-pill active" data-tour="tab-history" onclick="switchTab('history',this)">Calendar</button>
+  <button class="tab-pill" data-tour="tab-prs"        onclick="switchTab('prs',this)">PRs</button>
+  <button class="tab-pill" data-tour="tab-badges"        onclick="switchTab('badges',this)">Badges</button>
 </div>
 
 <!-- ── CALENDAR + HISTORY (combined) ──────────────────────────── -->
 <div id="tab-history">
-  <div class="cal-header">
+  <div class="cal-header" data-tour="cal-header">
     <button class="btn-icon cal-nav" onclick="calNav(-1)">‹</button>
     <span class="cal-month-label" id="cal-label"></span>
     <button class="btn-icon cal-nav" onclick="calNav(1)">›</button>
@@ -30,7 +30,7 @@
     <span><i class="dot today"></i> Today</span>
   </div>
 
-  <div class="section-title mt-3 mb-1">Recent Sessions</div>
+  <div class="section-title mt-3 mb-1" data-tour="recent-sessions">Recent Sessions</div>
   @if(!Model.History.Any()){
     <div class="empty-state"><div class="empty-icon">🏋️</div><p>No sessions yet. Start your first workout!</p></div>
   } else {
@@ -277,6 +277,23 @@ function openPRChart(exerciseId, exerciseName){
     });
 }
 function closePRChart(){ document.getElementById('pr-chart-modal').style.display='none'; }
+
+// ── Workouts-page tour ───────────────────────────────────────
+var FF_UID = @(Context.Session.GetInt32("uid") ?? 0);
+(function(){
+  var tourParam = new URLSearchParams(location.search).get('tour');
+  var forceTour = tourParam === 'workouts';
+  if(forceTour || !FFTour.hasSeen(FF_UID, 'workouts')){
+    setTimeout(function(){
+      FFTour.start([
+        { selector: '[data-tour="cal-header"]', title: 'Consistency Calendar', text: "Every trained day lights up here so you can see your consistency at a glance, month by month." },
+        { selector: '[data-tour="recent-sessions"]', title: 'Session History', text: "Every finished workout lands here — tap any one to see exactly what you logged that day." },
+        { selector: '[data-tour="tab-prs"]', title: 'Personal Records', text: "Automatically detected the moment you beat a previous best — no manual logging needed." },
+        { selector: '[data-tour="tab-badges"]', title: 'Badges', text: "Streaks and milestones you've unlocked along the way." }
+      ], FF_UID, 'workouts', { lastLabel: 'Done' });
+    }, 700);
+  }
+})();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 }

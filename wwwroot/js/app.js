@@ -66,8 +66,11 @@ function ffAnimateRings(scope){
 document.addEventListener('DOMContentLoaded', function(){ ffAnimateRings(); });
 
 // ── ONBOARDING TOUR (skippable spotlight walkthrough) ─────────
+// Supports several independently-tracked tours (Dashboard, Programs, Skills,
+// Workouts, ...) — each is "seen" on its own, keyed by tourKey, rather than
+// one global flag that only ever let a single tour play once per account.
 var FFTour = (function(){
-  var steps = [], idx = 0, uid = null;
+  var steps = [], idx = 0, uid = null, tourKey = 'default', lastLabel = "Let's go 💪";
   var els = {};
 
   function build(){
@@ -79,10 +82,11 @@ var FFTour = (function(){
         '<div class="ff-tour-dots" id="ff-tour-dots"></div>' +
         '<div class="ff-tour-title" id="ff-tour-title"></div>' +
         '<div class="ff-tour-text" id="ff-tour-text"></div>' +
-        '<div class="ff-tour-actions">' +
+        '<div class="ff-tour-actions" id="ff-tour-actions">' +
           '<button class="ff-tour-skip" id="ff-tour-skip">Skip tour</button>' +
           '<button class="btn btn-solid btn-sm" id="ff-tour-next">Next →</button>' +
         '</div>' +
+        '<div class="ff-tour-actions" id="ff-tour-choices" style="display:none;flex-direction:column"></div>' +
       '</div>';
     document.body.appendChild(overlay);
     els.overlay = overlay;
@@ -93,6 +97,8 @@ var FFTour = (function(){
     els.text   = overlay.querySelector('#ff-tour-text');
     els.next   = overlay.querySelector('#ff-tour-next');
     els.skip   = overlay.querySelector('#ff-tour-skip');
+    els.actions  = overlay.querySelector('#ff-tour-actions');
+    els.choices  = overlay.querySelector('#ff-tour-choices');
     els.next.onclick = next;
     els.skip.onclick = function(){ finish(true); };
     window.addEventListener('resize', position);
@@ -180,7 +186,25 @@ var FFTour = (function(){
     var step = steps[idx];
     els.title.textContent = step.title;
     els.text.textContent  = step.text;
-    els.next.textContent  = idx === steps.length - 1 ? "Let's go 💪" : 'Next →';
+
+    if(step.choices && step.choices.length){
+      // Final step hands off into a choice (e.g. Programs tour → "Show me" the
+      // sandbox builder walkthrough, or "Maybe later") instead of just closing.
+      els.actions.style.display = 'none';
+      els.choices.style.display = 'flex';
+      els.choices.innerHTML = '';
+      step.choices.forEach(function(c, i){
+        var b = document.createElement('button');
+        b.className = i === 0 ? 'btn btn-solid btn-sm' : 'ff-tour-skip';
+        b.textContent = c.label;
+        b.onclick = function(){ finish(false); if(typeof c.action === 'function') c.action(); };
+        els.choices.appendChild(b);
+      });
+    } else {
+      els.actions.style.display = 'flex';
+      els.choices.style.display = 'none';
+      els.next.textContent = idx === steps.length - 1 ? lastLabel : 'Next →';
+    }
     renderDots();
     position();
   }
@@ -205,19 +229,21 @@ var FFTour = (function(){
       realOrb.classList.remove('coach-hidden');
     }
     if(els.overlay) els.overlay.remove();
-    try{ localStorage.setItem('ff-tour-done-' + uid, '1'); }catch(e){}
+    try{ localStorage.setItem('ff-tour-done-' + uid + '-' + tourKey, '1'); }catch(e){}
   }
 
   return {
-    start: function(stepList, userId){
-      steps = stepList; idx = 0; uid = userId || 'anon';
+    // opts: { lastLabel: 'Done' } — defaults to the playful Dashboard phrasing
+    start: function(stepList, userId, key, opts){
+      steps = stepList; idx = 0; uid = userId || 'anon'; tourKey = key || 'default';
+      lastLabel = (opts && opts.lastLabel) || "Let's go 💪";
       build(); show();
     },
-    hasSeen: function(userId){
-      try{ return localStorage.getItem('ff-tour-done-' + (userId||'anon')) === '1'; }catch(e){ return false; }
+    hasSeen: function(userId, key){
+      try{ return localStorage.getItem('ff-tour-done-' + (userId||'anon') + '-' + (key||'default')) === '1'; }catch(e){ return false; }
     },
-    reset: function(userId){
-      try{ localStorage.removeItem('ff-tour-done-' + (userId||'anon')); }catch(e){}
+    reset: function(userId, key){
+      try{ localStorage.removeItem('ff-tour-done-' + (userId||'anon') + '-' + (key||'default')); }catch(e){}
     }
   };
 })();

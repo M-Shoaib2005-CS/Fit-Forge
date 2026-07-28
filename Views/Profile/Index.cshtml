@@ -355,6 +355,42 @@
   function closeBadgeInfo(){ document.getElementById("badge-info-modal").style.display = "none"; }
 </script>
 
+<!-- Replay Tutorials modal -->
+<div class="modal-backdrop" id="tutorial-list-modal" style="display:none" onclick="if(event.target===this)closeTutorialList()">
+  <div class="modal">
+    <div class="modal-header"><span>Replay Tutorials</span><button class="modal-close" onclick="closeTutorialList()">✕</button></div>
+    <div class="modal-body">
+      <p class="text-muted mb-1" style="font-size:12.5px">Pick a section to walk through again.</p>
+      <a href="/Dashboard/Index?tour=dashboard" class="btn btn-outline w-100 mb-1">🏠 Dashboard tour</a>
+      <a href="/Programs/Index?tour=programs" class="btn btn-outline w-100 mb-1">📋 Programs &amp; Schedule tour</a>
+      <a href="/Skills/Index?tour=skills" class="btn btn-outline w-100 mb-1">🧗 Skills tour</a>
+      <a href="/Workouts/Index?tour=workouts" class="btn btn-outline w-100">📈 Workout History &amp; PRs tour</a>
+    </div>
+  </div>
+</div>
+<script>
+  function openTutorialList(){ document.getElementById("tutorial-list-modal").style.display = "flex"; }
+  function closeTutorialList(){ document.getElementById("tutorial-list-modal").style.display = "none"; }
+
+  function saveCoachName(){
+    var val = document.getElementById("coach-name-input").value;
+    fetch('/Profile/SetCoachName', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ name: val })
+    }).then(r=>r.json()).then(function(d){
+      if(d.success){
+        document.getElementById("coach-name-input").value = d.name;
+        var orb = document.getElementById('coach-orb'); if(orb) orb.title = 'Ask ' + d.name;
+        var title = document.querySelector('.coach-title'); if(title) title.textContent = d.name;
+        var input = document.getElementById('coach-input'); if(input) input.placeholder = 'Ask or tell ' + d.name + ' something…';
+        showToast('Coach renamed to "' + d.name + '"', 'success');
+      } else {
+        showToast('Could not save that right now', 'danger');
+      }
+    }).catch(function(){ showToast('Could not save that right now', 'danger'); });
+  }
+</script>
+
 
 <!-- ── SETTINGS ──────────────────────────────────────────── -->
 <div id="tab-settings" style="display:none">
@@ -383,13 +419,24 @@
   </div>
 
   <div class="card mb-2">
-    <div class="card mb-2">
-    <div class="section-title">Need a refresher?</div>
-    <p class="text-muted mb-1" style="font-size:12.5px">Replay the guided walkthrough from the Dashboard.</p>
-    <a href="/Dashboard/Index?tour=1" class="btn btn-outline w-100">🔁 Replay Tutorial</a>
+    <div class="section-title">Your Coach</div>
+    <p class="text-muted mb-1" style="font-size:12.5px">Give the in-app coach a name — it's called "Coach" by default.</p>
+    <div style="display:flex;gap:8px">
+      <input type="text" class="form-input" id="coach-name-input" maxlength="30"
+             value="@Model.User.CoachName" placeholder="Coach"
+             style="flex:1" onkeydown="if(event.key==='Enter')saveCoachName()" />
+      <button class="btn btn-solid" onclick="saveCoachName()" style="white-space:nowrap">Save</button>
+    </div>
   </div>
 
-  <div class="section-title">App Accent</div>
+  <div class="card mb-2">
+    <div class="section-title">Need a refresher?</div>
+    <p class="text-muted mb-1" style="font-size:12.5px">Replay any of the guided walkthroughs.</p>
+    <button class="btn btn-outline w-100" onclick="openTutorialList()">🔁 Replay Tutorials</button>
+  </div>
+
+  <div class="card mb-2">
+    <div class="section-title">App Accent</div>
     <p class="text-muted mb-1" style="font-size:12.5px">Pick your color — live preview, applies everywhere.</p>
     <div class="accent-row">
       <div class="accent-swatch" data-accent="orange" onclick="applyAccent('orange')" style="background:#ff5a2b;">

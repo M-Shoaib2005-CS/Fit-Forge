@@ -4,10 +4,10 @@
 <div class="page-header">
   <div><div class="eyebrow">TRAINING PLANS</div><h1 class="page-title">Programs &amp; Schedule</h1></div>
   <div class="tab-pills">
-    <button class="tab-pill active" onclick="switchTab('myprograms',this)">My Programs</button>
-    <button class="tab-pill" onclick="switchTab('presets',this)">Presets</button>
-    <button class="tab-pill" onclick="switchTab('schedule',this)">Weekly Schedule</button>
-    <button class="tab-pill" id="tab-pill-builder" onclick="switchTab('builder',this);cancelEditProgram()">+ Build Program</button>
+    <button class="tab-pill active" data-tour="tab-myprograms" onclick="switchTab('myprograms',this)">My Programs</button>
+    <button class="tab-pill" data-tour="tab-presets" onclick="switchTab('presets',this)">Presets</button>
+    <button class="tab-pill" data-tour="tab-schedule" onclick="switchTab('schedule',this)">Weekly Schedule</button>
+    <button class="tab-pill" id="tab-pill-builder" data-tour="tab-builder" onclick="switchTab('builder',this);cancelEditProgram()">+ Build Program</button>
   </div>
 </div>
 <div id="tab-myprograms">
@@ -82,6 +82,10 @@
 </div>
 <div id="tab-builder" style="display:none">
   <div class="card">
+    <div id="sandbox-invite-banner" class="card mb-1" style="display:none;border:1px dashed var(--line)">
+      New here? <a href="javascript:void(0)" onclick="startProgramSandbox()">Try it with sample data first →</a>
+      <button onclick="dismissSandboxInvite()" style="float:right;background:none;border:none;color:var(--muted-2);cursor:pointer">✕</button>
+    </div>
     <div class="section-title" id="builder-title">Build a New Program</div>
     <div class="grid-2">
       <div class="form-group">
@@ -131,6 +135,9 @@
       <button class="btn btn-outline" id="builder-cancel-btn" style="display:none" onclick="cancelEditProgram()">Cancel</button>
       <button class="btn btn-solid" id="builder-save-btn" onclick="saveProgram()">Save Program</button>
     </div>
+    <div class="text-center mt-1">
+      <a href="javascript:void(0)" onclick="startProgramSandbox()" class="text-muted" style="font-size:12.5px">How does this work? Try it with sample data</a>
+    </div>
   </div>
 </div>
 <div class="modal-backdrop" id="prog-modal" style="display:none" onclick="if(event.target===this)closeProg()">
@@ -145,6 +152,7 @@
 
 @section Scripts {
 <script>
+var FF_UID = @(Context.Session.GetInt32("uid") ?? 0);
 // Bake exercise data into page for builder
 var ALL_EXERCISES=@Html.Raw(System.Text.Json.JsonSerializer.Serialize(
   Model.AllExercises.Select(e=>new{id=e.ExerciseId,name=e.Name,group=e.MuscleGroup,groupId=e.MuscleGroupId,type=e.ExerciseType,mode=e.TrackingMode}),
@@ -160,6 +168,18 @@ function switchTab(tab,btn){
   document.getElementById('tab-'+tab).style.display='';
   document.querySelectorAll('.tab-pill').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
+
+  if(tab==='builder'){
+    var dismissed = false;
+    try{ dismissed = localStorage.getItem('ff-sandbox-invite-dismissed-'+FF_UID)==='1'; }catch(e){}
+    var banner = document.getElementById('sandbox-invite-banner');
+    if(banner) banner.style.display = (!dismissed && editingProgramId===null && !window.__ffSandboxMode) ? '' : 'none';
+  }
+}
+
+function dismissSandboxInvite(){
+  document.getElementById('sandbox-invite-banner').style.display='none';
+  try{ localStorage.setItem('ff-sandbox-invite-dismissed-'+FF_UID,'1'); }catch(e){}
 }
 
 // ── BUILDER ──────────────────────────────────────────────────
@@ -257,6 +277,33 @@ function updateExerciseInputs(dayIdx, exIdx, sel){
 }
 
 // ── EDIT PROGRAM ────────────────────────────────────────────
+// ── SANDBOX / PRACTICE MODE ─────────────────────────────────
+// Opens the real Builder UI pre-filled with dummy data so someone can click
+// through naming a day, adding an exercise, and hitting Save — with zero
+// risk, since saveProgram() short-circuits (see above) whenever this flag
+// is on instead of ever calling the real API.
+function startProgramSandbox(){
+  var pill=document.querySelector('[data-tour="tab-builder"]');
+  cancelEditProgram();
+  window.__ffSandboxMode = true;
+  if(pill) switchTab('builder', pill);
+  resetBuilderForm();
+
+  document.getElementById('b-name').value = 'Sample Push Day';
+  document.getElementById('b-desc').value = 'Just practicing — nothing here gets saved';
+  addDay('Workout');
+  addExerciseToDay(dayCount);
+
+  document.getElementById('sandbox-banner-active')?.remove();
+  var banner=document.createElement('div');
+  banner.id='sandbox-banner-active';
+  banner.className='card mb-1';
+  banner.style.cssText='border:1px dashed var(--accent);background:var(--accent-dim)';
+  banner.innerHTML='<b>Practice mode</b> — try renaming the day, picking a real exercise below, then hit <b>Save Program</b>. Nothing here is actually stored.';
+  var title=document.getElementById('builder-title');
+  title.parentNode.insertBefore(banner, title);
+}
+
 function resetBuilderForm(){
   document.getElementById('b-name').value='';
   document.getElementById('b-desc').value='';
@@ -383,6 +430,21 @@ function saveProgram(){
     days.push({name:dayName,dayType:type,exercises:exs});
   });
   if(!days.length){showToast('Add at least one day','danger');return;}
+
+  // ── Practice mode: nothing below this point touches the server. Same
+  // validation as a real save, so it's genuine practice — just no network
+  // call and no database row, so there's nothing to clean up afterward.
+  if(window.__ffSandboxMode){
+    showToast('Nice — that\\'s exactly how you\\'d build a real one! Nothing here was saved.','success');
+    setTimeout(function(){
+      window.__ffSandboxMode=false;
+      resetBuilderForm();
+      document.getElementById('sandbox-banner-active')?.remove();
+      var pill=document.querySelector('[data-tour="tab-myprograms"]');
+      if(pill) switchTab('myprograms', pill);
+    },1400);
+    return;
+  }
 
   if(editingProgramId!==null){
     // Editing an existing program: the backend already remaps the user's weekly schedule
@@ -526,5 +588,31 @@ function deleteProgram(pid, name){
     });
   });
 }
+
+// ── Programs-page tour ──────────────────────────────────────
+// Short and scoped to this page only — the Dashboard tour already covered
+// streaks/sessions/stats; this one just answers the 3 things people land
+// here confused about: what's a preset, what's the weekly schedule, and
+// how do I build my own. Ends with a handoff choice into the sandbox
+// builder walkthrough instead of just closing.
+(function(){
+  var tourParam = new URLSearchParams(location.search).get('tour');
+  var forceTour = tourParam === 'programs';
+  if(forceTour || !FFTour.hasSeen(FF_UID, 'programs')){
+    setTimeout(function(){
+      FFTour.start([
+        { selector: '[data-tour="tab-presets"]', title: 'Presets', text: "3 ready-made programs — pick one and it copies into your library with the week auto-scheduled for you." },
+        { selector: '[data-tour="tab-schedule"]', title: 'Weekly Schedule', text: "This is what actually decides what shows up on your Dashboard each day — which day of your program maps to which day of the week." },
+        { selector: '[data-tour="tab-builder"]', title: 'Build Program', text: "Or build your own from scratch — name it, add workout/rest days, and pick exercises for each." },
+        { selector: null, title: "Want to try it?", text: "Building a program has a few steps — want to practice with fake data first? Nothing you do in practice mode gets saved.",
+          choices: [
+            { label: 'Show me', action: function(){ startProgramSandbox(); } },
+            { label: 'Maybe later', action: function(){} }
+          ]
+        }
+      ], FF_UID, 'programs', { lastLabel: 'Done' });
+    }, 700);
+  }
+})();
 </script>
 }

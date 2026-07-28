@@ -282,8 +282,9 @@ if(_pendingAch.length > 0){ setTimeout(()=>showAchievements(_pendingAch), 800); 
 // Profile > Settings always works regardless, using the ?tour=1 flag.
 var FF_UID = @Model.User.UserId;
 var isNewAccount = @System.Text.Json.JsonSerializer.Serialize(Model.TotalWorkouts == 0);
-var forceTour = new URLSearchParams(location.search).get('tour') === '1';
-if((forceTour || (isNewAccount && !FFTour.hasSeen(FF_UID))) && _pendingAch.length === 0){
+var tourParam = new URLSearchParams(location.search).get('tour');
+var forceTour = tourParam === '1' || tourParam === 'dashboard';
+if((forceTour || (isNewAccount && !FFTour.hasSeen(FF_UID, 'dashboard'))) && _pendingAch.length === 0){
   setTimeout(function(){
     FFTour.start([
       { selector: '[data-tour="streak"]', title: '🔥 Your Streak', text: "This tracks consecutive training days. Miss too many in a row and it resets — so try to keep it alive!" },
@@ -291,8 +292,8 @@ if((forceTour || (isNewAccount && !FFTour.hasSeen(FF_UID))) && _pendingAch.lengt
       { selector: '[data-tour="bento"]',  title: 'Your Stats', text: 'Total workouts, average session length, and recent PRs — your progress at a glance.' },
       { selector: '[data-tour="water"]',  title: '💧 Hydration', text: 'Log water in one tap. Hit your daily goal for a little celebration.' },
       { selector: '[data-tour="nav"]',    title: 'Get Around', text: 'Home, Log, Skills, and Profile are always one tap away down here.' },
-      { selector: null, title: "You're Ready!", text: "That's everything. Go build a program, or jump straight into today's session. Let's train. 💪" }
-    ], FF_UID);
+      { selector: null, title: "You're Ready!", text: "That's everything here — head to Programs next and we'll show you around there too. Let's train. 💪" }
+    ], FF_UID, 'dashboard');
   }, 700);
 }
 </script>

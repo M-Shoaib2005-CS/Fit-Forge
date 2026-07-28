@@ -19,6 +19,7 @@ CREATE TABLE users (
     login_attempts INT        NOT NULL DEFAULT 0,
     lockout_until  DATETIME   NULL,
     email_verified TINYINT(1) NOT NULL DEFAULT 0,
+    coach_name VARCHAR(30)  NOT NULL DEFAULT 'Coach',
     created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

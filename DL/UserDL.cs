@@ -143,6 +143,12 @@ namespace FitForge.DL
             if(!TimeSpan.TryParse(hhmm,out var ts))ts=new TimeSpan(17,0,0);
             DB.NonQuery("UPDATE users SET reminder_time=@t WHERE user_id=@id",DB.P("@t",ts),DB.P("@id",uid));
         }
+        public void UpdateCoachName(int uid, string name){
+            name = (name ?? "").Trim();
+            if(name.Length==0) name="Coach"; // empty input resets to the default rather than storing blank
+            if(name.Length>30) name=name.Substring(0,30); // keep it short — it renders in a small header pill
+            DB.NonQuery("UPDATE users SET coach_name=@n WHERE user_id=@id",DB.P("@n",name),DB.P("@id",uid));
+        }
         public void UpdateTimezone(int uid, string tz){
             if(string.IsNullOrWhiteSpace(tz))return;
             // Validate it's a real IANA id before storing — a bad/unknown value would
@@ -193,6 +199,7 @@ namespace FitForge.DL
                 else if(TimeSpan.TryParse(r["reminder_time"].ToString(),out var ts2)) u.ReminderTime=ts2.ToString(@"hh\:mm");
             }
             if(r.Table.Columns.Contains("timezone")&&r["timezone"]!=DBNull.Value) u.Timezone=r["timezone"].ToString()!;
+            if(r.Table.Columns.Contains("coach_name")&&r["coach_name"]!=DBNull.Value&&!string.IsNullOrWhiteSpace(r["coach_name"].ToString())) u.CoachName=r["coach_name"].ToString()!;
             return u;
         }
     }
