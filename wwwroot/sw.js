@@ -1,4 +1,4 @@
-const CACHE = 'fitforge-v10'; // bumped: FFTour rewrite (multi-tour + choice steps), Programs sandbox, coach-name UI
+const CACHE = 'fitforge-v11'; // bumped: Programs builder field labels (Sets/Reps/Weight/Rest) in app.css
 const STATIC = [
     '/',
     '/css/app.css',
