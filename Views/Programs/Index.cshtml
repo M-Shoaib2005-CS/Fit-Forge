@@ -435,7 +435,7 @@ function saveProgram(){
   // validation as a real save, so it's genuine practice — just no network
   // call and no database row, so there's nothing to clean up afterward.
   if(window.__ffSandboxMode){
-    showToast('Nice — that\\'s exactly how you\\'d build a real one! Nothing here was saved.','success');
+    showToast('Nice — that\'s exactly how you\'d build a real one! Nothing here was saved.','success');
     setTimeout(function(){
       window.__ffSandboxMode=false;
       resetBuilderForm();
