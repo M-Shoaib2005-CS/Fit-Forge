@@ -386,6 +386,17 @@ var Coach = (function(){
     els.body.scrollTop = els.body.scrollHeight;
   }
 
+  function addInjuryResolved(injury){
+    var card = document.createElement('div');
+    card.className = 'coach-propose';
+    card.innerHTML =
+      '<div class="coach-propose-head"><div class="coach-propose-title">' + esc(injury.bodyPart) + '</div>' +
+      '<div class="coach-propose-days">' + esc(injury.category) + '</div></div>' +
+      '<div class="coach-applied">✓ Marked resolved — exercises won\\'t be flagged for this anymore</div>';
+    els.body.appendChild(card);
+    els.body.scrollTop = els.body.scrollHeight;
+  }
+
   function open(){
     el();
     els.backdrop.classList.add('open');
@@ -432,6 +443,9 @@ var Coach = (function(){
       } else if(d.kind === 'injury_logged' && d.injury){
         addInjuryLogged(d.injury);
         showStackToast('Injury logged 🩹', 'success', 2500);
+      } else if(d.kind === 'injury_resolved' && d.injury){
+        addInjuryResolved(d.injury);
+        showStackToast('Injury marked resolved 💪', 'success', 2500);
       }
     }).catch(function(){
       clearTimeout(timer);

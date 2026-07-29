@@ -18,7 +18,7 @@ namespace FitForge.Services
     // "injury" is only populated when Kind == "injury_report".
     public class CoachReply
     {
-        public string Kind { get; set; } = "chat"; // "chat" | "question" | "proposal" | "injury_report"
+        public string Kind { get; set; } = "chat"; // "chat" | "question" | "proposal" | "injury_report" | "injury_resolved"
         public string Message { get; set; } = "";
         public List<string> QuickReplies { get; set; } = new();
         public JsonElement? Program { get; set; }
@@ -166,6 +166,14 @@ INJURY PROTOCOL (takes priority over the program-building flow if the user menti
   or move it normally, numbness/tingling, or a sudden significant injury) — still log it (kind=""injury_report""
   if you have enough detail), but weave in a brief, caring line suggesting they get it looked at by a doctor
   or physio too. You're not a medical professional and this app can't diagnose anything.
+- If the USER CONTEXT below lists active injuries for this user, and the user says something indicating one
+  of them has healed/recovered/feels fine now/is better/isn't bothering them anymore (e.g. ""my shoulder's
+  fine now"", ""knee's healed"", ""not injured anymore""), respond with kind=""injury_resolved"" and populate
+  the 'injury' object with that injury's bodyPart and category COPIED EXACTLY from how they appear in the
+  USER CONTEXT's active injury list (not just the catalogs) — this is how the app matches it to the specific
+  record to close out. notes is optional. The app updates the record immediately; your 'message' text for
+  this kind is never shown to the user, so keep it minimal. If it's unclear which listed injury they mean,
+  ask instead (kind=""question"").
 - Always respond with ONLY the JSON envelope — no markdown, no prose outside the JSON.";
 
         private static readonly object ResponseSchema = new
@@ -173,7 +181,7 @@ INJURY PROTOCOL (takes priority over the program-building flow if the user menti
             type = "OBJECT",
             properties = new
             {
-                kind = new { type = "STRING", @enum = new[] { "chat", "question", "proposal", "injury_report" } },
+                kind = new { type = "STRING", @enum = new[] { "chat", "question", "proposal", "injury_report", "injury_resolved" } },
                 message = new { type = "STRING" },
                 quickReplies = new { type = "ARRAY", items = new { type = "STRING" } },
                 program = new

@@ -1,4 +1,4 @@
-const CACHE = 'fitforge-v12'; // bumped: global unhandledrejection safety net + fetchJSON helper (Phase 0)
+const CACHE = 'fitforge-v13'; // bumped: coach can now mark an injury resolved (injury_resolved kind + UI card)
 const STATIC = [
     '/',
     '/css/app.css',

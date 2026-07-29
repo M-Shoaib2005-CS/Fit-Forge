@@ -130,6 +130,19 @@ namespace FitForge.Controllers
                 });
             }
 
+            if (reply.Kind == "injury_resolved")
+            {
+                var (resolved, resultMessage, closedInjury) = TryResolveInjury(Uid.Value, reply.Injury);
+                return Json(new
+                {
+                    kind = resolved ? "injury_resolved" : "question",
+                    message = resultMessage,
+                    quickReplies = Array.Empty<string>(),
+                    program = (object?)null,
+                    injury = closedInjury
+                });
+            }
+
             return Json(new
             {
                 kind = reply.Kind,
@@ -167,6 +180,33 @@ namespace FitForge.Controllers
 
             string msg = $"Logged — {part.Name} ({cat.Name}). I'll flag any exercises that could aggravate it in your workouts.";
             return (true, msg, new { bodyPart = part.Name, category = cat.Name, notes });
+        }
+
+        // Matches the model's bodyPart/category against this user's actual active
+        // injuries (not just the catalogs — an injury only resolves if it's really
+        // logged as active for this user) and closes the matching one out. Same
+        // "trust the DB, not the model's claim" principle as TryLogInjury above.
+        private (bool resolved, string message, object? injury) TryResolveInjury(int uid, JsonElement? injuryEl)
+        {
+            if (injuryEl == null || injuryEl.Value.ValueKind != JsonValueKind.Object)
+                return (false, "Which injury do you mean?", null);
+
+            string bodyPart = Get(injuryEl.Value, "bodyPart");
+            string category = Get(injuryEl.Value, "category");
+
+            var active = injuryDL.GetActiveForUser(uid)
+                .FirstOrDefault(i => string.Equals(i.BodyPart, bodyPart, StringComparison.OrdinalIgnoreCase)
+                                   && string.Equals(i.Category, category, StringComparison.OrdinalIgnoreCase));
+
+            if (active == null)
+                return (false, "I couldn't find that as one of your currently active injuries — which one do you mean?", null);
+
+            bool ok = profileBL.ResolveInjury(uid, active.UiId);
+            if (!ok)
+                return (false, "Sorry, something went wrong updating that — mind trying again?", null);
+
+            string msg = $"Nice — marked {active.BodyPart} ({active.Category}) as resolved. I won't flag exercises for it anymore.";
+            return (true, msg, new { bodyPart = active.BodyPart, category = active.Category });
         }
 
         [HttpPost]
