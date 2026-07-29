@@ -392,7 +392,7 @@ var Coach = (function(){
     card.innerHTML =
       '<div class="coach-propose-head"><div class="coach-propose-title">' + esc(injury.bodyPart) + '</div>' +
       '<div class="coach-propose-days">' + esc(injury.category) + '</div></div>' +
-      '<div class="coach-applied">✓ Marked resolved — exercises won\\'t be flagged for this anymore</div>';
+      '<div class="coach-applied">✓ Marked resolved — exercises will not be flagged for this anymore</div>';
     els.body.appendChild(card);
     els.body.scrollTop = els.body.scrollHeight;
   }

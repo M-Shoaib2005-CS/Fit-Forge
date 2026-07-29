@@ -1,4 +1,4 @@
-const CACHE = 'fitforge-v13'; // bumped: coach can now mark an injury resolved (injury_resolved kind + UI card)
+const CACHE = 'fitforge-v14'; // bumped: fixed a broken string escape in app.js that was silently killing the whole script (coach wouldn't open)
 const STATIC = [
     '/',
     '/css/app.css',
