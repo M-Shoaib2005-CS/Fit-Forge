@@ -121,6 +121,13 @@ namespace FitForge.BL
         public (bool ok, List<string> newPRs, List<AchievementModel> newAchievements) FinishSession(
             int uid, FinishSessionReq req, string progressionStyle)
         {
+            // IDOR guard — must happen before anything else touches the DB.
+            // LogSet's INSERT has no per-row ownership check of its own, so a
+            // tampered sessionId in the request body would otherwise let sets
+            // get written into a session that isn't this user's.
+            if (!wDL.SessionBelongsToUser(req.SessionId, uid))
+                return (false, new List<string>(), new List<AchievementModel>());
+
             wDL.FinishSession(req.SessionId, uid, req.Notes);
             var newPRs = new List<string>();
             double totalVolume = 0;
@@ -173,16 +180,23 @@ namespace FitForge.BL
             return (true, newPRs, allNewAchievements);
         }
 
-        public ActiveWorkoutVM BuildActiveWorkoutVM(int uid, int sessionId, int dayId)
+        // Returns null when the URL's sessionId doesn't match the user's actual
+        // open session (e.g. a stale link after the workout was already
+        // finished, or a browser-back navigation) — previously this silently
+        // displayed whatever GetOpenSession(uid) returned regardless of
+        // whether it matched the sessionId in the URL at all.
+        public ActiveWorkoutVM? BuildActiveWorkoutVM(int uid, int sessionId, int dayId)
         {
             var session = wDL.GetOpenSession(uid);
-            var day     = LoadDayWithTargets(uid, dayId);
+            if (session == null || session.SessionId != sessionId) return null;
+
+            var day = LoadDayWithTargets(uid, dayId);
             return new ActiveWorkoutVM
             {
                 SessionId   = sessionId,
                 DayId       = dayId,
-                DayName     = session?.DayName ?? "Workout",
-                ProgramName = session?.ProgramName ?? "",
+                DayName     = session.DayName,
+                ProgramName = session.ProgramName,
                 Exercises   = BuildActiveExercises(uid, day)
             };
         }

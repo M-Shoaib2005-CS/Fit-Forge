@@ -1,4 +1,4 @@
-const CACHE = 'fitforge-v11'; // bumped: Programs builder field labels (Sets/Reps/Weight/Rest) in app.css
+const CACHE = 'fitforge-v12'; // bumped: global unhandledrejection safety net + fetchJSON helper (Phase 0)
 const STATIC = [
     '/',
     '/css/app.css',

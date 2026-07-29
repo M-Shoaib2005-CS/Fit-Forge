@@ -11,7 +11,7 @@ namespace FitForge.Controllers
     public class ChatTurnDto { public string Role { get; set; } = "user"; public string Text { get; set; } = ""; }
     public class ChatReq { public List<ChatTurnDto> History { get; set; } = new(); }
 
-    public class CoachController(GeminiService gemini, ProgramBL programBL, ProfileBL profileBL, InjuryDL injuryDL, UserDL uDL) : BaseController(uDL)
+    public class CoachController(GeminiService gemini, ProgramBL programBL, ProfileBL profileBL, InjuryDL injuryDL, UserDL uDL, MeasurementDL measDL) : BaseController(uDL)
     {
         [HttpPost]
         public async Task<IActionResult> Chat([FromBody] ChatReq req)
@@ -31,6 +31,48 @@ namespace FitForge.Controllers
             if (currentUser != null && !string.IsNullOrWhiteSpace(currentUser.CoachName) && currentUser.CoachName != "Coach")
             {
                 userContext = $"This user has named you '{currentUser.CoachName}'. Respond to that name if asked what you're called, and sign off in that persona — you're still the same in-app coach otherwise.";
+            }
+
+            // Only pass along what the user actually logged — no defaults, no
+            // assuming a value because a field exists on the model. This lets
+            // the coach give genuinely tailored suggestions (recovery capacity,
+            // load progression, rough nutrition ballpark) without ever having
+            // to ask the basics first.
+            if (currentUser != null)
+            {
+                var stats = new List<string>();
+                if (currentUser.Age > 0) stats.Add($"age {currentUser.Age}");
+                if (!string.IsNullOrWhiteSpace(currentUser.Gender)) stats.Add(currentUser.Gender);
+                if (currentUser.Height > 0) stats.Add($"height {currentUser.Height}cm");
+                if (currentUser.Weight > 0) stats.Add($"weight {currentUser.Weight}kg");
+                if (currentUser.Height > 0 && currentUser.Weight > 0) stats.Add($"BMI {currentUser.BMI} ({currentUser.BMICat})");
+                if (!string.IsNullOrWhiteSpace(currentUser.FitnessLevel)) stats.Add($"self-reported fitness level: {currentUser.FitnessLevel}");
+
+                if (stats.Count > 0)
+                {
+                    string bodyContext = "This user's logged body stats — use them silently to tailor suggestions (don't recite these numbers back unless the user specifically asks about them or it's directly relevant to explain a recommendation). Never diagnose, give medical advice, or comment on appearance: " + string.Join(", ", stats) + ".";
+                    userContext = userContext == null ? bodyContext : userContext + " " + bodyContext;
+                }
+
+                var latest = measDL.GetLatest(Uid.Value);
+                if (latest != null)
+                {
+                    var m = new List<string>();
+                    if (latest.ChestCm.HasValue) m.Add($"chest {latest.ChestCm}cm");
+                    if (latest.WaistCm.HasValue) m.Add($"waist {latest.WaistCm}cm");
+                    if (latest.HipsCm.HasValue) m.Add($"hips {latest.HipsCm}cm");
+                    if (latest.ShouldersCm.HasValue) m.Add($"shoulders {latest.ShouldersCm}cm");
+                    if (latest.NeckCm.HasValue) m.Add($"neck {latest.NeckCm}cm");
+                    if (latest.LeftArmCm.HasValue || latest.RightArmCm.HasValue) m.Add($"arms L{latest.LeftArmCm}/R{latest.RightArmCm}cm");
+                    if (latest.LeftThighCm.HasValue || latest.RightThighCm.HasValue) m.Add($"thighs L{latest.LeftThighCm}/R{latest.RightThighCm}cm");
+                    if (latest.BodyFatPct.HasValue) m.Add($"body fat {latest.BodyFatPct}%");
+
+                    if (m.Count > 0)
+                    {
+                        string measureContext = $"Most recent body measurements logged ({latest.RecordedAt:MMM d}, use silently, don't recite unless asked): " + string.Join(", ", m) + ".";
+                        userContext = userContext == null ? measureContext : userContext + " " + measureContext;
+                    }
+                }
             }
             try
             {
