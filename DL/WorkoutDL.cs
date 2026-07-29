@@ -37,16 +37,6 @@ namespace FitForge.DL
             return sid;
         }
 
-        // IDOR guard: called before FinishSession/LogSet trust a client-supplied
-        // session_id for anything. Without this, LogSet's INSERT has no uid
-        // check at all — a tampered request body could write sets into any
-        // session_id that exists, regardless of who owns it.
-        public bool SessionBelongsToUser(int sid, int uid){
-            var dt = DB.Select("SELECT 1 FROM workout_sessions WHERE session_id=@sid AND user_id=@u",
-                DB.P("@sid",sid), DB.P("@u",uid));
-            return dt.Rows.Count > 0;
-        }
-
         public void FinishSession(int sid, int uid, string? notes){
             DB.NonQuery(@"UPDATE workout_sessions SET finished_at=NOW(),
                 duration_secs=TIMESTAMPDIFF(SECOND,started_at,NOW()),notes=@n

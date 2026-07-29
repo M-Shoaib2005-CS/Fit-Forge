@@ -70,7 +70,7 @@ namespace FitForge.DL
                     "SELECT u.*, p.dob, p.gender, p.height_cm, p.weight_kg, p.fitness_level, s.current_streak, s.longest_streak " +
                     "FROM users u LEFT JOIN user_profile p ON u.user_id=p.user_id LEFT JOIN user_streaks s ON u.user_id=s.user_id " +
                     "WHERE u.username=@u", DB.P("@u", username.ToLower()));
-                if(dt.Rows.Count==0){log.LogWarning("Login: account not found {U}",username);return(null,"Invalid username or password");}
+                if(dt.Rows.Count==0){log.LogWarning("Login: account not found {U}",username);return(null,"Account not found");}
                 var row=dt.Rows[0];
 
                 // Check lockout (only if column exists after migration)
@@ -100,7 +100,7 @@ namespace FitForge.DL
                         int remaining = MaxAttempts - attempts;
                         return (null, $"Incorrect password. {remaining} attempt{(remaining==1?"":"s")} remaining.");
                     }
-                    return (null,"Invalid username or password");
+                    return (null,"Incorrect password");
                 }
 
                 // Success — reset attempts

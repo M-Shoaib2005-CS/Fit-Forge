@@ -18,13 +18,7 @@ namespace FitForge.Controllers
         {
             if (Uid == null) return RedirectToAction("Login", "Account");
             ViewData["Page"] = "Workouts";
-            var vm = wBL.BuildActiveWorkoutVM(Uid.Value, sessionId, dayId);
-            if (vm == null)
-            {
-                TempData["Error"] = "That workout session isn't active anymore — start a fresh one from today's card.";
-                return RedirectToAction("Index", "Dashboard");
-            }
-            return View(vm);
+            return View(wBL.BuildActiveWorkoutVM(Uid.Value, sessionId, dayId));
         }
 
         // Per-session trend for one exercise — powers the "Show Details" chart

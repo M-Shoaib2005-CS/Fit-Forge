@@ -1,36 +1,3 @@
-// ── GLOBAL FETCH-FAILURE SAFETY NET ─────────────────────────────
-// Most fetch() calls in this app don't have their own .catch(), so a
-// network error or server 500 was previously just... silent — the button
-// stays stuck on "Saving…" forever with zero feedback. This is a blanket
-// fix rather than patching every call site individually: any promise
-// rejection that nothing else handled bubbles up here and at least tells
-// the user something failed, instead of leaving them staring at nothing.
-window.addEventListener('unhandledrejection', function(e){
-  console.error('Unhandled promise rejection:', e.reason);
-  if(typeof showToast === 'function'){
-    showToast('Something went wrong — please try again.', 'danger');
-  }
-  e.preventDefault();
-});
-
-// Small helper for any *new* fetch calls going forward — parses JSON and
-// funnels network/parse errors through the same toast, without needing to
-// remember to write .catch(...) by hand every time.
-function fetchJSON(url, options){
-  return fetch(url, options)
-    .then(function(r){
-      if(!r.ok) throw new Error('HTTP ' + r.status);
-      return r.json();
-    })
-    .catch(function(err){
-      console.error('fetchJSON failed:', url, err);
-      if(typeof showToast === 'function'){
-        showToast('Something went wrong — please try again.', 'danger');
-      }
-      return null; // callers should treat a null result as "request failed"
-    });
-}
-
 // ── ACCENT COLOR (live, persisted client-side) ─────────────────
 var FF_ACCENTS = {
   orange: { accent:'#ff5a2b', dim:'#ff5a2b33' },
