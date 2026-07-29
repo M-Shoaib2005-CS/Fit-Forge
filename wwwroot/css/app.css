@@ -575,9 +575,8 @@ select.form-input,select.form-control{ appearance:none; background-image:url("da
 .ex-filter-row{ display:flex; gap:8px; margin-bottom:8px; }
 .bex-row{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
 .bex-select{ flex:2; min-width:160px; }
-.bex-field{ display:flex; flex-direction:column; gap:2px; flex:0 0 66px; }
-.bex-field-label{ font-size:10px; text-transform:uppercase; letter-spacing:.03em; color:var(--text-muted); white-space:nowrap; }
-.bex-weight-wrap.bex-field{ flex:0 0 90px; }
+.bex-sets,.bex-reps,.bex-rest{ flex:0 0 66px; }
+.bex-weight-wrap{ flex:0 0 90px; }
 .builder-actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
 .prog-day-block{ margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--line); }
 .prog-day-header{ font-size:13.5px; margin-bottom:6px; }
