@@ -60,7 +60,7 @@ builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
 // triggered by an external scheduler (e.g. cron-job.org) hitting the app's public URL —
 // works the same way regardless of hosting tier, since each hit both wakes the app (if
 // asleep) and runs the check.
-builder.Services.AddHttpClient<GeminiService>(c => c.Timeout = TimeSpan.FromSeconds(25));
+builder.Services.AddHttpClient<GeminiService>(c => c.Timeout = TimeSpan.FromSeconds(60));
 var app = builder.Build();
 
 // One-time visible-at-startup check — tells you immediately on deploy whether the Vapid
