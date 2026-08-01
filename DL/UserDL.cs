@@ -149,6 +149,11 @@ namespace FitForge.DL
             if(name.Length>30) name=name.Substring(0,30); // keep it short — it renders in a small header pill
             DB.NonQuery("UPDATE users SET coach_name=@n WHERE user_id=@id",DB.P("@n",name),DB.P("@id",uid));
         }
+        public void UpdatePlateMathSettings(int uid, bool enabled, string unit){
+            unit = (unit == "lb") ? "lb" : "kg"; // whitelist, never trust raw client input into a stored column
+            DB.NonQuery("UPDATE users SET plate_math_enabled=@e, plate_math_unit=@u WHERE user_id=@id",
+                DB.P("@e", enabled?1:0), DB.P("@u", unit), DB.P("@id", uid));
+        }
         public void UpdateTimezone(int uid, string tz){
             if(string.IsNullOrWhiteSpace(tz))return;
             // Validate it's a real IANA id before storing — a bad/unknown value would
@@ -200,6 +205,8 @@ namespace FitForge.DL
             }
             if(r.Table.Columns.Contains("timezone")&&r["timezone"]!=DBNull.Value) u.Timezone=r["timezone"].ToString()!;
             if(r.Table.Columns.Contains("coach_name")&&r["coach_name"]!=DBNull.Value&&!string.IsNullOrWhiteSpace(r["coach_name"].ToString())) u.CoachName=r["coach_name"].ToString()!;
+            if(r.Table.Columns.Contains("plate_math_enabled")&&r["plate_math_enabled"]!=DBNull.Value) u.PlateMathEnabled=Convert.ToInt32(r["plate_math_enabled"])==1;
+            if(r.Table.Columns.Contains("plate_math_unit")&&r["plate_math_unit"]!=DBNull.Value&&!string.IsNullOrWhiteSpace(r["plate_math_unit"].ToString())) u.PlateMathUnit=r["plate_math_unit"].ToString()!;
             return u;
         }
     }

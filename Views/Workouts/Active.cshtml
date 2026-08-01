@@ -71,6 +71,14 @@
       </div>
       <div class="ff-last-time" id="ff-last-time" style="display:none"></div>
 
+      <div class="ff-settype-row" id="ff-settype-row">
+        <div class="ff-settype-pill active" data-type="Working" onclick="pickSetType('Working',this)">Working</div>
+        <div class="ff-settype-pill" data-type="Warmup" onclick="pickSetType('Warmup',this)">Warm-up</div>
+        <div class="ff-settype-pill" data-type="Amrap" onclick="pickSetType('Amrap',this)">AMRAP</div>
+        <div class="ff-settype-pill" data-type="Drop" onclick="pickSetType('Drop',this)">Drop</div>
+        <div class="ff-settype-pill" data-type="Tempo" onclick="pickSetType('Tempo',this)">Tempo</div>
+      </div>
+
       <div class="ff-stepper">
         <div class="ff-stepbtn" onclick="stepRep(-1)">–</div>
         <div class="ff-repnum" id="ff-rep-count">0</div>
@@ -81,13 +89,14 @@
       <div class="ff-fieldrow" id="ff-weight-row">
         <div class="ff-field">
           <div class="flbl">Weight (kg)</div>
-          <input type="number" class="fval" id="ff-weight-input" placeholder="Bodyweight" step="0.5" min="0"/>
+          <input type="number" class="fval" id="ff-weight-input" placeholder="Bodyweight" step="0.5" min="0" oninput="updatePlateMath()"/>
         </div>
         <div class="ff-field">
           <div class="flbl">Rest Next</div>
           <div class="fval" id="ff-rest-preview">90s</div>
         </div>
       </div>
+      <div id="ff-plate-suggestion" style="display:none;background:#1e2e22;border:1px solid #2a3d2f;border-radius:10px;padding:8px 12px;margin-bottom:10px;color:#8fd99f;font-size:12px"></div>
 
       <div class="ff-rpewrap">
         <div class="ff-rpe-head"><span>Effort · RPE</span><b id="ff-rpe-val">7</b></div>
@@ -150,7 +159,11 @@ var doneCount  = 0;
 var totalSets  = EXERCISES.reduce(function(a,e){ return a+e.sets; }, 0);
 var startTime  = Date.now();
 var restTimers = {};
-var currentPde = null, currentSet = null, currentRepVal = 0;
+var currentPde = null, currentSet = null, currentRepVal = 0, currentSetType = 'Working';
+var PLATE_MATH_ENABLED = @(((bool?)ViewData["PlateMathEnabled"] ?? true) ? "true" : "false");
+var PLATE_MATH_UNIT = '@(ViewData["PlateMathUnit"] ?? "kg")';
+var BAR_WEIGHT = PLATE_MATH_UNIT === 'lb' ? 45 : 20;
+var PLATES = PLATE_MATH_UNIT === 'lb' ? [45,35,25,10,5,2.5] : [25,20,15,10,5,2.5,1.25];
 
 // ── Crash-safe draft (recovers logged sets if the page reloads mid-session) ──
 function saveDraft(){
@@ -233,6 +246,12 @@ function openSetSheet(pdeId){
   document.getElementById('ff-rpe-slider').value = 7;
   document.getElementById('ff-rpe-val').textContent = 7;
 
+  currentSetType = 'Working';
+  document.querySelectorAll('.ff-settype-pill').forEach(function(p){
+    p.classList.toggle('active', p.dataset.type === 'Working');
+  });
+  updatePlateMath();
+
   var lastEl = document.getElementById('ff-last-time');
   if(ex.lastReps){
     var parts = ex.trackDuration ? (ex.lastReps + 's') : (ex.lastReps + ' reps');
@@ -247,6 +266,36 @@ function openSetSheet(pdeId){
 }
 function closeSetSheet(){
   document.getElementById('ff-sheet-backdrop').classList.remove('show');
+}
+
+function pickSetType(type, el){
+  currentSetType = type;
+  document.querySelectorAll('.ff-settype-pill').forEach(function(p){ p.classList.remove('active'); });
+  el.classList.add('active');
+}
+
+// Greedy plate breakdown for one side of the bar, given the total entered
+// weight (always stored/entered in kg). Only shown when there's genuinely
+// something to load and the person hasn't turned this off in Settings.
+function updatePlateMath(){
+  var box = document.getElementById('ff-plate-suggestion');
+  if(!PLATE_MATH_ENABLED){ box.style.display = 'none'; return; }
+  var kg = parseFloat(document.getElementById('ff-weight-input').value);
+  if(!kg || document.getElementById('ff-weight-row').style.display === 'none'){ box.style.display = 'none'; return; }
+
+  var totalDisplay = PLATE_MATH_UNIT === 'lb' ? kg * 2.20462 : kg;
+  var perSide = (totalDisplay - BAR_WEIGHT) / 2;
+  if(perSide <= 0){ box.textContent = 'Bar only (' + BAR_WEIGHT + PLATE_MATH_UNIT + ')'; box.style.display = 'block'; return; }
+
+  var remaining = perSide, breakdown = [];
+  PLATES.forEach(function(p){
+    var count = Math.floor((remaining + 0.001) / p);
+    if(count > 0){ breakdown.push(count > 1 ? count + '×' + p : '' + p); remaining -= count * p; }
+  });
+  if(breakdown.length === 0){ box.style.display = 'none'; return; }
+  box.textContent = 'Load ' + breakdown.join(' + ') + ' ' + PLATE_MATH_UNIT + ' per side (bar = ' + BAR_WEIGHT + PLATE_MATH_UNIT + ')'
+    + (remaining > 0.2 ? ' — closest match, not exact' : '');
+  box.style.display = 'block';
 }
 function stepRep(d){
   currentRepVal = Math.max(0, currentRepVal + d);
@@ -268,7 +317,7 @@ function commitCurrentSet(skipped){
 
   loggedSets = loggedSets.filter(function(s){ return !(s.pdeId == pdeId && s.setNumber == setNum); });
   loggedSets.push({ pdeId: parseInt(pdeId), exerciseId: parseInt(ex.exerciseId), setNumber: setNum,
-    targetReps: ex.targetReps, actualReps: reps, weightKg: weight, rpe: rpe, skipped: skipped });
+    targetReps: ex.targetReps, actualReps: reps, weightKg: weight, rpe: rpe, skipped: skipped, setType: currentSetType });
 
   ex.doneSets++;
   doneCount++;

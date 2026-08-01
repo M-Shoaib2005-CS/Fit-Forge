@@ -62,6 +62,12 @@ namespace FitForge.Controllers
             return Json(new{success=true, name = clean.Length==0 ? "Coach" : (clean.Length>30 ? clean.Substring(0,30) : clean)});
         }
         [HttpPost,IgnoreAntiforgeryToken]
+        public IActionResult SetPlateMath([FromBody]PlateMathReq req){
+            if(Uid==null)return Json(new{success=false});
+            uBL.UpdatePlateMathSettings(Uid.Value, req.Enabled, req.Unit);
+            return Json(new{success=true});
+        }
+        [HttpPost,IgnoreAntiforgeryToken]
         public IActionResult LogInjury([FromBody]LogInjuryReq req){
             if(Uid==null)return Json(new{success=false});
             var(ok,msg)=bl.LogInjury(Uid.Value,req);

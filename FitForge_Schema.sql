@@ -20,6 +20,8 @@ CREATE TABLE users (
     lockout_until  DATETIME   NULL,
     email_verified TINYINT(1) NOT NULL DEFAULT 0,
     coach_name VARCHAR(30)  NOT NULL DEFAULT 'Coach',
+    plate_math_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    plate_math_unit VARCHAR(3) NOT NULL DEFAULT 'kg', -- 'kg' or 'lb'
     created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -219,6 +221,7 @@ CREATE TABLE workout_sets (
     actual_reps INT          NOT NULL DEFAULT 0,
     weight_kg   DECIMAL(6,2) NULL,
     rpe         TINYINT      NULL,      -- Rate of Perceived Exertion 1-10
+    set_type    VARCHAR(10)  NOT NULL DEFAULT 'Working', -- Working | Warmup | Amrap | Drop | Tempo
     was_skipped TINYINT(1)   NOT NULL DEFAULT 0,
     logged_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (session_id)  REFERENCES workout_sessions(session_id) ON DELETE CASCADE,

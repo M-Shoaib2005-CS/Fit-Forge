@@ -389,6 +389,30 @@
       }
     }).catch(function(){ showToast('Could not save that right now', 'danger'); });
   }
+
+  var _plateUnit = '@Model.User.PlateMathUnit';
+  function persistPlateMath(){
+    var enabled = document.getElementById('plate-math-enabled').checked;
+    fetchJSON('/Profile/SetPlateMath', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ enabled: enabled, unit: _plateUnit })
+    }).then(function(d){
+      if(!d || !d.success) showToast('Could not save that right now', 'danger');
+    });
+  }
+  function savePlateMath(){
+    var enabled = document.getElementById('plate-math-enabled').checked;
+    document.getElementById('plate-math-track').style.background = enabled ? 'var(--accent)' : 'var(--line)';
+    document.getElementById('plate-math-knob').style.left = enabled ? '21px' : '3px';
+    document.getElementById('plate-math-unit-row').style.display = enabled ? 'flex' : 'none';
+    persistPlateMath();
+  }
+  function setPlateUnit(unit){
+    _plateUnit = unit;
+    document.getElementById('unit-kg').className = 'btn ' + (unit==='kg' ? 'btn-solid' : 'btn-outline');
+    document.getElementById('unit-lb').className = 'btn ' + (unit==='lb' ? 'btn-solid' : 'btn-outline');
+    persistPlateMath();
+  }
 </script>
 
 
@@ -451,6 +475,25 @@
       <div class="accent-swatch" data-accent="blue" onclick="applyAccent('blue')" style="background:#4ea6ff;">
         <svg viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke="#1a0e08" stroke-width="3" stroke-linecap="round"/></svg>
       </div>
+    </div>
+  </div>
+
+  <div class="card mb-2">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div class="section-title" style="margin-bottom:2px">Plate math suggestions</div>
+        <p class="text-muted" style="font-size:12.5px;margin:0">Show which plates to load for weighted sets</p>
+      </div>
+      <label style="position:relative;display:inline-block;width:44px;height:26px;flex-shrink:0">
+        <input type="checkbox" id="plate-math-enabled" @(Model.User.PlateMathEnabled ? "checked" : "") onchange="savePlateMath()" style="opacity:0;width:0;height:0">
+        <span id="plate-math-track" style="position:absolute;inset:0;background:@(Model.User.PlateMathEnabled ? "var(--accent)" : "var(--line)");border-radius:14px;cursor:pointer;transition:background .2s">
+          <span id="plate-math-knob" style="position:absolute;width:20px;height:20px;border-radius:50%;background:#fff;top:3px;left:@(Model.User.PlateMathEnabled ? "21px" : "3px");transition:left .2s"></span>
+        </span>
+      </label>
+    </div>
+    <div id="plate-math-unit-row" style="display:@(Model.User.PlateMathEnabled ? "flex" : "none");gap:8px;margin-top:12px">
+      <button type="button" id="unit-kg" class="btn @(Model.User.PlateMathUnit=="kg" ? "btn-solid" : "btn-outline")" style="flex:1" onclick="setPlateUnit('kg')">Kilograms (kg)</button>
+      <button type="button" id="unit-lb" class="btn @(Model.User.PlateMathUnit=="lb" ? "btn-solid" : "btn-outline")" style="flex:1" onclick="setPlateUnit('lb')">Pounds (lb)</button>
     </div>
   </div>
 

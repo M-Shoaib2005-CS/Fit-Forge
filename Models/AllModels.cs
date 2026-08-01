@@ -25,6 +25,8 @@ namespace FitForge.Models
         public string ReminderTime { get; set; } = "17:00"; // "HH:mm", user's local wall-clock time
         public string Timezone { get; set; } = "UTC"; // IANA id, e.g. "Asia/Karachi"
         public string CoachName { get; set; } = "Coach"; // user-customizable name for the in-app AI coach
+        public bool PlateMathEnabled { get; set; } = true;
+        public string PlateMathUnit { get; set; } = "kg"; // "kg" or "lb"
         public string Initials => string.Concat(Name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(w => w[0])).ToUpper();
         public double BMI => Height > 0 ? Math.Round(Weight / Math.Pow(Height / 100.0, 2), 1) : 0;
         public string BMICat => BMI < 18.5 ? "Underweight" : BMI < 25 ? "Normal" : BMI < 30 ? "Overweight" : "Obese";
@@ -528,6 +530,7 @@ namespace FitForge.Models
     // ── AJAX Request Models ───────────────────────────────────
     public class ThemeReq { public string Theme { get; set; } = "dark"; }
     public class CoachNameReq { public string Name { get; set; } = "Coach"; }
+    public class PlateMathReq { public bool Enabled { get; set; } = true; public string Unit { get; set; } = "kg"; }
     public class SkillActionReq { public int SkillId { get; set; } }
     public class StartSessionReq { public int DayId { get; set; } }
     public class LogInjuryReq { public int PartId { get; set; } public int CategoryId { get; set; } public string Notes { get; set; } = ""; }
@@ -551,6 +554,7 @@ namespace FitForge.Models
         public double? WeightKg { get; set; }
         public int? Rpe { get; set; }
         public bool Skipped { get; set; }
+        public string SetType { get; set; } = "Working"; // Working | Warmup | Amrap | Drop | Tempo
     }
 
     public class CreateProgramReq

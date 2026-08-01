@@ -138,10 +138,16 @@ namespace FitForge.BL
             foreach (var s in req.Sets)
             {
                 int targetReps = s.TargetReps > 0 ? s.TargetReps : 0;
+                string setType = string.IsNullOrWhiteSpace(s.SetType) ? "Working" : s.SetType;
                 wDL.LogSet(req.SessionId, s.ExerciseId, s.PdeId,
-                    s.SetNumber, targetReps, s.ActualReps, s.WeightKg, s.Rpe, s.Skipped);
+                    s.SetNumber, targetReps, s.ActualReps, s.WeightKg, s.Rpe, s.Skipped, setType);
 
-                if (!s.Skipped && s.ActualReps > 0)
+                // Warm-up sets are deliberately sub-maximal, so they must never
+                // count toward a PR or toward session volume — otherwise a light
+                // warm-up rep could register as beating a real working-set best.
+                bool countsForPR = !s.Skipped && s.ActualReps > 0 && setType != "Warmup";
+
+                if (countsForPR)
                 {
                     bool pr = prDL.CheckAndSave(uid, s.ExerciseId, req.SessionId, s.ActualReps, s.WeightKg);
                     if (pr)

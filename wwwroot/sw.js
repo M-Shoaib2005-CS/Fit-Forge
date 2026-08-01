@@ -1,4 +1,4 @@
-const CACHE = 'fitforge-v14'; // bumped: fixed a broken string escape in app.js that was silently killing the whole script (coach wouldn't open)
+const CACHE = 'fitforge-v15'; // bumped: set types + plate math on the logging sheet, new app.css pill styles
 const STATIC = [
     '/',
     '/css/app.css',
