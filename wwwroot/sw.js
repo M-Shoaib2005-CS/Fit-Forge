@@ -1,4 +1,4 @@
-const CACHE = 'fitforge-v16';
+const CACHE = 'fitforge-v17';
 const STATIC = [
     '/',
     '/css/app.css',
