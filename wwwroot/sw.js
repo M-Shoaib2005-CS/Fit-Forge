@@ -1,4 +1,4 @@
-const CACHE = 'fitforge-v15'; // bumped: set types + plate math on the logging sheet, new app.css pill styles
+const CACHE = 'fitforge-v16';
 const STATIC = [
     '/',
     '/css/app.css',
