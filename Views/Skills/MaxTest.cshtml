@@ -129,7 +129,7 @@ function formatBest(item){
   var parts = [];
   if(item.bestReps > 0) parts.push(item.bestReps + ' reps');
   if(item.bestWeightKg) parts.push(item.bestWeightKg + 'kg');
-  return parts.length ? 'best ' + parts.join(' @ ') : 'no attempts yet';
+  return parts.length ? 'best ' + parts.join(' @@ ') : 'no attempts yet';
 }
 
 function showAttempts(exId){
@@ -141,7 +141,7 @@ function showAttempts(exId){
       box.innerHTML = '<div class="text-muted" style="font-size:12px;padding:8px 0">No attempts logged yet</div>';
     } else {
       box.innerHTML = d.attempts.map(function(a){
-        var line = a.reps + ' reps' + (a.weightKg ? ' @ ' + a.weightKg + 'kg' : '');
+        var line = a.reps + ' reps' + (a.weightKg ? ' @@ ' + a.weightKg + 'kg' : '');
         return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-size:12.5px">' +
           '<span>' + line + '</span><span class="text-muted">' + a.attemptedAt + '</span></div>';
       }).join('') + '<div class="text-muted" style="font-size:11px;padding-top:6px;text-align:center">Showing last 3 attempts</div>';
