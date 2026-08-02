@@ -19,3 +19,8 @@ SET @c3 := (SELECT COUNT(*) FROM information_schema.COLUMNS
             WHERE TABLE_SCHEMA='fitforgedb' AND TABLE_NAME='users' AND COLUMN_NAME='plate_math_unit');
 SET @s3 := IF(@c3=0, 'ALTER TABLE users ADD COLUMN plate_math_unit VARCHAR(3) NOT NULL DEFAULT ''kg''', 'SELECT 1');
 PREPARE stmt FROM @s3; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @c4 := (SELECT COUNT(*) FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA='fitforgedb' AND TABLE_NAME='workout_sets' AND COLUMN_NAME='drop_index');
+SET @s4 := IF(@c4=0, 'ALTER TABLE workout_sets ADD COLUMN drop_index INT NOT NULL DEFAULT 0', 'SELECT 1');
+PREPARE stmt FROM @s4; EXECUTE stmt; DEALLOCATE PREPARE stmt;

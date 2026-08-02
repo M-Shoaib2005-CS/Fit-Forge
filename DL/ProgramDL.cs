@@ -41,7 +41,7 @@ namespace FitForge.DL
         }
 
         public List<ProgramDayExerciseModel> GetExercisesForDay(int dayId)=>
-            DB.Select(@"SELECT pde.*,e.name AS ex_name,mg.name AS mg_name,e.tracking_mode,e.exercise_type
+            DB.Select(@"SELECT pde.*,e.name AS ex_name,mg.name AS mg_name,e.tracking_mode,e.exercise_type,e.equipment_type
                 FROM program_day_exercises pde JOIN exercises e ON pde.exercise_id=e.exercise_id
                 JOIN muscle_groups mg ON e.muscle_group_id=mg.group_id
                 WHERE pde.day_id=@d ORDER BY pde.exercise_order",DB.P("@d",dayId))
@@ -49,6 +49,7 @@ namespace FitForge.DL
                   PdeId=Convert.ToInt32(r["pde_id"]),DayId=dayId,ExerciseId=Convert.ToInt32(r["exercise_id"]),
                   ExerciseName=r["ex_name"].ToString()!,MuscleGroup=r["mg_name"].ToString()!,
                   TrackingMode=r["tracking_mode"].ToString()!,ExerciseType=r["exercise_type"].ToString()!,
+                  EquipmentType=r.Table.Columns.Contains("equipment_type")&&r["equipment_type"]!=DBNull.Value?r["equipment_type"].ToString():null,
                   ExerciseOrder=Convert.ToInt32(r["exercise_order"]),TargetSets=Convert.ToInt32(r["target_sets"]),
                   TargetReps=Convert.ToInt32(r["target_reps"]),
                   TargetWeightKg=r["target_weight_kg"]!=DBNull.Value?Convert.ToDouble(r["target_weight_kg"]):null,

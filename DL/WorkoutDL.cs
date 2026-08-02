@@ -54,12 +54,13 @@ namespace FitForge.DL
                 DB.P("@n",notes),DB.P("@sid",sid),DB.P("@u",uid));
         }
 
-        public void LogSet(int sid, int eid, int pdeId, int setNum, int targetReps, int actualReps, double? weightKg, int? rpe, bool skipped, string setType){
-            DB.NonQuery(@"INSERT INTO workout_sets(session_id,exercise_id,pde_id,set_number,target_reps,actual_reps,weight_kg,rpe,was_skipped,set_type)
-                VALUES(@sid,@eid,@pde,@sn,@tr,@ar,@w,@rpe,@sk,@st)",
+        public void LogSet(int sid, int eid, int pdeId, int setNum, int targetReps, int actualReps, double? weightKg, int? rpe, bool skipped, string setType, int dropIndex){
+            DB.NonQuery(@"INSERT INTO workout_sets(session_id,exercise_id,pde_id,set_number,target_reps,actual_reps,weight_kg,rpe,was_skipped,set_type,drop_index)
+                VALUES(@sid,@eid,@pde,@sn,@tr,@ar,@w,@rpe,@sk,@st,@di)",
                 DB.P("@sid",sid),DB.P("@eid",eid),DB.P("@pde",pdeId),DB.P("@sn",setNum),
                 DB.P("@tr",targetReps),DB.P("@ar",actualReps),DB.P("@w",weightKg),
-                DB.P("@rpe",rpe),DB.P("@sk",skipped?1:0),DB.P("@st",string.IsNullOrWhiteSpace(setType)?"Working":setType));
+                DB.P("@rpe",rpe),DB.P("@sk",skipped?1:0),DB.P("@st",string.IsNullOrWhiteSpace(setType)?"Working":setType),
+                DB.P("@di",dropIndex));
         }
 
         // Per-session performance history for one exercise — used to draw the
@@ -372,7 +373,7 @@ namespace FitForge.DL
               .Rows().Select(MapPR).ToList();
 
         // Checks if a logged set beats any existing PR and saves if so
-        public bool CheckAndSave(int uid, int eid, int sessionId, int reps, double? weightKg){
+        public bool CheckAndSave(int uid, int eid, int? sessionId, int reps, double? weightKg){
             bool newPr=false;
             // max_reps PR
             var curReps=DB.Scalar("SELECT MAX(value) FROM personal_records WHERE user_id=@u AND exercise_id=@e AND record_type='max_reps'",DB.P("@u",uid),DB.P("@e",eid));

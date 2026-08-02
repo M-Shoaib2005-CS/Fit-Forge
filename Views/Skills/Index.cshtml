@@ -52,7 +52,13 @@
               @if(sk.RequirementsMet){
                 <span class="text-neon">&#10003; Requirements met — click to unlock</span>
               } else {
-                <span>&#128274; Requirements not met</span>
+                var firstUnmet = sk.Requirements.FirstOrDefault(r => !r.Met) ?? sk.Requirements.FirstOrDefault();
+                <div>
+                  <span>&#128274; Requirements not met</span>
+                  @if(firstUnmet != null){
+                    <a href="/Skills/MaxTest?exerciseId=@firstUnmet.ExerciseId" class="btn btn-outline" style="display:block;margin-top:8px;font-size:12px;padding:8px" onclick="event.stopPropagation()">🎯 Test your current max →</a>
+                  }
+                </div>
               }
             </div>
           }

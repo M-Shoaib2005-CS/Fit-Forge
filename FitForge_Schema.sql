@@ -72,6 +72,9 @@ CREATE TABLE exercises (
     difficulty      ENUM('Beginner','Intermediate','Advanced')      NOT NULL DEFAULT 'Beginner',
     description     TEXT NULL,
     image_url       VARCHAR(255) NULL,
+    equipment_type  ENUM('Barbell','Dumbbell','Cable','Machine','Bodyweight','Kettlebell','Bands') NULL,
+    movement_pattern ENUM('Push','Pull','Squat','Hinge','Carry','Core') NULL, -- null where the taxonomy doesn't cleanly apply (cardio, mobility)
+    is_compound     TINYINT(1)   NULL, -- multi-joint compound vs single-joint isolation
     is_active       TINYINT(1)   NOT NULL DEFAULT 1,
     FOREIGN KEY (muscle_group_id) REFERENCES muscle_groups(group_id)
 );
@@ -222,6 +225,7 @@ CREATE TABLE workout_sets (
     weight_kg   DECIMAL(6,2) NULL,
     rpe         TINYINT      NULL,      -- Rate of Perceived Exertion 1-10
     set_type    VARCHAR(10)  NOT NULL DEFAULT 'Working', -- Working | Warmup | Amrap | Drop | Tempo
+    drop_index  INT          NOT NULL DEFAULT 0, -- 0 = first weight, 1 = first drop, 2 = second drop... only >0 for Drop sets
     was_skipped TINYINT(1)   NOT NULL DEFAULT 0,
     logged_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (session_id)  REFERENCES workout_sessions(session_id) ON DELETE CASCADE,
@@ -274,6 +278,20 @@ CREATE TABLE personal_records (
     FOREIGN KEY (user_id)    REFERENCES users(user_id)              ON DELETE CASCADE,
     FOREIGN KEY (exercise_id)REFERENCES exercises(exercise_id),
     FOREIGN KEY (session_id) REFERENCES workout_sessions(session_id) ON DELETE SET NULL
+);
+
+-- Full history of standalone max-test attempts (not tied to a workout session).
+-- personal_records only ever stores the current best per (user, exercise, type) —
+-- this table is what powers the "past attempts" list on the Test Your Max screen.
+CREATE TABLE max_test_attempts (
+    attempt_id   INT          AUTO_INCREMENT PRIMARY KEY,
+    user_id      INT          NOT NULL,
+    exercise_id  INT          NOT NULL,
+    reps         INT          NULL,
+    weight_kg    DECIMAL(6,2) NULL,
+    attempted_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id)     REFERENCES users(user_id)     ON DELETE CASCADE,
+    FOREIGN KEY (exercise_id) REFERENCES exercises(exercise_id)
 );
 
 -- ─────────────────────────────────────────────────────────────
@@ -398,6 +416,46 @@ INSERT INTO exercises (name, muscle_group_id, exercise_type, tracking_mode, diff
 ('Jump Rope',            12,'Cardio','duration','Beginner',    'Skipping rope cardio'),
 ('Box Jump',              7,'Cardio','reps_only','Intermediate','Explosive jump onto box'),
 ('Sprint',               12,'Cardio','duration','Intermediate','Max effort sprint');
+
+-- ── Equipment type ──────────────────────────────────────────
+UPDATE exercises SET equipment_type='Barbell' WHERE name IN
+    ('Bench Press','Incline Bench Press','Overhead Press','Deadlift','Barbell Row','Barbell Squat');
+UPDATE exercises SET equipment_type='Dumbbell' WHERE name IN
+    ('Dumbbell Curl','Dumbbell Lateral Raise');
+UPDATE exercises SET equipment_type='Cable' WHERE name IN
+    ('Tricep Pushdown','Cable Row','Lat Pulldown');
+UPDATE exercises SET equipment_type='Machine' WHERE name IN
+    ('Leg Press','Leg Curl');
+UPDATE exercises SET equipment_type='Bodyweight' WHERE exercise_type='Calisthenics' OR exercise_type='Cardio';
+
+-- ── Movement pattern (left NULL where the taxonomy doesn't cleanly apply) ──
+UPDATE exercises SET movement_pattern='Push' WHERE name IN
+    ('Push-Up','Wide Push-Up','Diamond Push-Up','Decline Push-Up','Archer Push-Up','Pike Push-Up',
+     'Pseudo Planche Push-Up','Wall Handstand Push-Up','Bench Press','Incline Bench Press','Overhead Press');
+UPDATE exercises SET movement_pattern='Pull' WHERE name IN
+    ('Pull-Up','Chin-Up','Australian Pull-Up','Archer Pull-Up','Commando Pull-Up',
+     'Barbell Row','Cable Row','Lat Pulldown','Dumbbell Curl');
+UPDATE exercises SET movement_pattern='Squat' WHERE name IN
+    ('Squat','Bulgarian Split Squat','Pistol Squat','Jump Squat','Barbell Squat','Leg Press','Box Jump');
+UPDATE exercises SET movement_pattern='Hinge' WHERE name IN
+    ('Deadlift','Nordic Curl','Leg Curl');
+UPDATE exercises SET movement_pattern='Core' WHERE name IN
+    ('Plank','Hollow Body Hold','L-Sit','Dragon Flag','Hanging Leg Raise','Ab Wheel Rollout','Mountain Climber');
+-- Everything else (cardio, calf raise, lateral raise, handstand hold, burpee, bear crawl) stays NULL —
+-- doesn't fit the push/pull/squat/hinge/core taxonomy cleanly, better left unclassified than forced.
+
+-- ── Compound vs isolation ───────────────────────────────────
+UPDATE exercises SET is_compound=1 WHERE name IN
+    ('Push-Up','Wide Push-Up','Diamond Push-Up','Decline Push-Up','Archer Push-Up','Pike Push-Up',
+     'Pseudo Planche Push-Up','Wall Handstand Push-Up','Pull-Up','Chin-Up','Australian Pull-Up',
+     'Archer Pull-Up','Commando Pull-Up','Squat','Bulgarian Split Squat','Pistol Squat','Jump Squat',
+     'Dragon Flag','Ab Wheel Rollout','Burpee','Mountain Climber','Bear Crawl','Handstand Hold',
+     'Bench Press','Incline Bench Press','Overhead Press','Deadlift','Barbell Row','Barbell Squat',
+     'Cable Row','Lat Pulldown','Leg Press','Box Jump');
+UPDATE exercises SET is_compound=0 WHERE name IN
+    ('Plank','Hollow Body Hold','L-Sit','Hanging Leg Raise','Calf Raise','Nordic Curl',
+     'Dumbbell Curl','Tricep Pushdown','Leg Curl','Dumbbell Lateral Raise');
+-- Cardio (Jump Rope, Sprint) left NULL — compound/isolation isn't a meaningful distinction for conditioning work.
 
 -- ─────────────────────────────────────────────────────────────
 -- INJURY SYSTEM SEED

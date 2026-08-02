@@ -73,11 +73,11 @@
 
       <div class="ff-settype-row" id="ff-settype-row">
         <div class="ff-settype-pill active" data-type="Working" onclick="pickSetType('Working',this)">Working</div>
-        <div class="ff-settype-pill" data-type="Warmup" onclick="pickSetType('Warmup',this)">Warm-up</div>
         <div class="ff-settype-pill" data-type="Amrap" onclick="pickSetType('Amrap',this)">AMRAP</div>
         <div class="ff-settype-pill" data-type="Drop" onclick="pickSetType('Drop',this)">Drop</div>
         <div class="ff-settype-pill" data-type="Tempo" onclick="pickSetType('Tempo',this)">Tempo</div>
       </div>
+      <button type="button" id="ff-warmup-btn" onclick="doWarmupFill()" style="display:none;width:100%;padding:8px;margin-bottom:14px;border-radius:10px;background:none;border:1px dashed var(--line);color:var(--muted);font-size:12px;cursor:pointer">🔥 Do a warm-up set</button>
 
       <div class="ff-stepper">
         <div class="ff-stepbtn" onclick="stepRep(-1)">–</div>
@@ -98,6 +98,9 @@
       </div>
       <div id="ff-plate-suggestion" style="display:none;background:#1e2e22;border:1px solid #2a3d2f;border-radius:10px;padding:8px 12px;margin-bottom:10px;color:#8fd99f;font-size:12px"></div>
 
+      <div id="ff-drop-list" style="display:none;margin-bottom:10px"></div>
+      <button type="button" id="ff-add-drop-btn" onclick="addDropPoint()" style="display:none;width:100%;padding:10px;margin-bottom:10px;border-radius:12px;background:none;border:1px dashed var(--accent);color:var(--accent);font-size:13px;font-weight:600;cursor:pointer">+ Add Drop Point →</button>
+
       <div class="ff-rpewrap">
         <div class="ff-rpe-head"><span>Effort · RPE</span><b id="ff-rpe-val">7</b></div>
         <input type="range" min="1" max="10" value="7" id="ff-rpe-slider" oninput="document.getElementById('ff-rpe-val').textContent=this.value">
@@ -105,7 +108,7 @@
 
       <div style="display:flex; gap:8px;">
         <button class="btn btn-outline" onclick="skipCurrentSet()">Skip Set</button>
-        <button class="btn btn-solid" style="flex:1" onclick="logCurrentSet()">✓ Log Set</button>
+        <button class="btn btn-solid" style="flex:1" id="ff-log-btn" onclick="logCurrentSet()">✓ Log Set</button>
       </div>
     </div>
 
@@ -145,7 +148,7 @@ var EXERCISES  = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
       pdeId = ex.PdeId, exerciseId = ex.ExerciseId, name = ex.ExerciseName,
       sets = ex.TargetSets, targetReps = ex.TargetReps, restSeconds = ex.RestSeconds,
       trackDuration = ex.TrackDuration, trackWeight = ex.TrackWeight,
-      targetWeight = ex.TargetWeight, notes = ex.Notes,
+      targetWeight = ex.TargetWeight, notes = ex.Notes, equipmentType = ex.EquipmentType,
       lastReps = ex.LastReps, lastWeightKg = ex.LastWeightKg,
       lastDate = ex.LastDate.HasValue ? ex.LastDate.Value.ToString("MMM d") : null
     }),
@@ -159,7 +162,7 @@ var doneCount  = 0;
 var totalSets  = EXERCISES.reduce(function(a,e){ return a+e.sets; }, 0);
 var startTime  = Date.now();
 var restTimers = {};
-var currentPde = null, currentSet = null, currentRepVal = 0, currentSetType = 'Working';
+var currentPde = null, currentSet = null, currentRepVal = 0, currentSetType = 'Working', pendingDrops = [];
 var PLATE_MATH_ENABLED = @(((bool?)ViewData["PlateMathEnabled"] ?? true) ? "true" : "false");
 var PLATE_MATH_UNIT = '@(ViewData["PlateMathUnit"] ?? "kg")';
 var BAR_WEIGHT = PLATE_MATH_UNIT === 'lb' ? 45 : 20;
@@ -242,6 +245,7 @@ function openSetSheet(pdeId){
   document.getElementById('ff-weight-row').style.display = ex.trackDuration ? 'none' : 'flex';
   document.getElementById('ff-weight-input').value = ex.targetWeight || '';
   document.getElementById('ff-weight-input').placeholder = ex.targetWeight ? '' : 'Bodyweight';
+  document.getElementById('ff-warmup-btn').style.display = ex.trackWeight ? 'block' : 'none';
   document.getElementById('ff-rest-preview').textContent = ex.restSeconds + 's';
   document.getElementById('ff-rpe-slider').value = 7;
   document.getElementById('ff-rpe-val').textContent = 7;
@@ -250,6 +254,11 @@ function openSetSheet(pdeId){
   document.querySelectorAll('.ff-settype-pill').forEach(function(p){
     p.classList.toggle('active', p.dataset.type === 'Working');
   });
+  pendingDrops = [];
+  renderDropList();
+  document.getElementById('ff-add-drop-btn').style.display = 'none';
+  document.getElementById('ff-log-btn').textContent = '✓ Log Set';
+  resetWarmupBtnStyle();
   updatePlateMath();
 
   var lastEl = document.getElementById('ff-last-time');
@@ -272,16 +281,82 @@ function pickSetType(type, el){
   currentSetType = type;
   document.querySelectorAll('.ff-settype-pill').forEach(function(p){ p.classList.remove('active'); });
   el.classList.add('active');
+  resetWarmupBtnStyle();
+  if(type !== 'Drop'){ pendingDrops = []; renderDropList(); }
+  document.getElementById('ff-add-drop-btn').style.display = (type === 'Drop') ? 'block' : 'none';
+  document.getElementById('ff-log-btn').textContent = (type === 'Drop') ? '✓ Finish Drop Set' : '✓ Log Set';
 }
 
-// Greedy plate breakdown for one side of the bar, given the total entered
-// weight (always stored/entered in kg). Only shown when there's genuinely
-// something to load and the person hasn't turned this off in Settings.
+function renderDropList(){
+  var box = document.getElementById('ff-drop-list');
+  if(pendingDrops.length === 0){ box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.style.display = 'block';
+  box.innerHTML = pendingDrops.map(function(d, i){
+    return '<div style="display:flex;justify-content:space-between;padding:6px 10px;background:var(--bg-soft);border-radius:8px;margin-bottom:4px;font-size:12.5px">' +
+      '<span>Drop ' + (i+1) + '</span><span>' + d.reps + ' reps' + (d.weightKg ? ' @ ' + d.weightKg + 'kg' : '') + '</span></div>';
+  }).join('');
+}
+
+// Stashes the currently-entered reps/weight as one drop point, then suggests
+// ~20% lighter for the next drop (editable — this is a starting point, not
+// a rule). Rest timer intentionally doesn't start here — real drop sets
+// don't rest between drops, only after the whole sequence is finished.
+function addDropPoint(){
+  var weightInput = document.getElementById('ff-weight-input');
+  var weight = parseFloat(weightInput.value) || null;
+  if(!currentRepVal || currentRepVal < 1){ showToast('Enter reps for this drop first', 'danger'); return; }
+
+  pendingDrops.push({ reps: currentRepVal, weightKg: weight });
+  renderDropList();
+
+  if(weight){
+    var suggested = Math.round((weight * 0.8) / 0.5) * 0.5;
+    weightInput.value = suggested;
+    updatePlateMath();
+  }
+  currentRepVal = 0;
+  document.getElementById('ff-rep-count').textContent = 0;
+}
+
+function resetWarmupBtnStyle(){
+  var btn = document.getElementById('ff-warmup-btn');
+  btn.style.background = 'none'; btn.style.borderColor = 'var(--line)'; btn.style.color = 'var(--muted)';
+  btn.textContent = '🔥 Do a warm-up set';
+}
+
+// Auto-fills weight (60% of target) and reps (~125% of target) as a starting
+// point for a warm-up set — fully editable afterward via the normal steppers,
+// this is just a faster starting point than typing it all from scratch.
+function doWarmupFill(){
+  var ex = exMap[currentPde];
+  if(!ex) return;
+  var baseWeight = ex.targetWeight || ex.lastWeightKg || 0;
+  if(baseWeight > 0){
+    var warmupWeight = Math.round((baseWeight * 0.6) / 0.5) * 0.5;
+    document.getElementById('ff-weight-input').value = warmupWeight;
+    updatePlateMath();
+  }
+  var warmupReps = Math.max(1, Math.round(ex.targetReps * 1.25));
+  currentRepVal = warmupReps;
+  document.getElementById('ff-rep-count').textContent = warmupReps;
+
+  currentSetType = 'Warmup';
+  document.querySelectorAll('.ff-settype-pill').forEach(function(p){ p.classList.remove('active'); });
+  var btn = document.getElementById('ff-warmup-btn');
+  btn.style.background = 'var(--accent)'; btn.style.borderColor = 'var(--accent)'; btn.style.color = 'var(--accent-ink)';
+  btn.textContent = '✓ Warm-up set selected';
+}
+
+// Greedy plate breakdown for one side of the bar. Only applies to genuine
+// barbell exercises — cable/machine/dumbbell weight numbers aren't
+// comparable to a bar+plates setup, so this deliberately checks
+// ex.equipmentType rather than just "does this exercise track weight."
 function updatePlateMath(){
   var box = document.getElementById('ff-plate-suggestion');
-  if(!PLATE_MATH_ENABLED){ box.style.display = 'none'; return; }
+  var ex = exMap[currentPde];
+  if(!PLATE_MATH_ENABLED || !ex || ex.equipmentType !== 'Barbell'){ box.style.display = 'none'; return; }
   var kg = parseFloat(document.getElementById('ff-weight-input').value);
-  if(!kg || document.getElementById('ff-weight-row').style.display === 'none'){ box.style.display = 'none'; return; }
+  if(!kg){ box.style.display = 'none'; return; }
 
   var totalDisplay = PLATE_MATH_UNIT === 'lb' ? kg * 2.20462 : kg;
   var perSide = (totalDisplay - BAR_WEIGHT) / 2;
@@ -316,8 +391,25 @@ function commitCurrentSet(skipped){
   if(dot) dot.classList.add(skipped ? 'skip' : 'on');
 
   loggedSets = loggedSets.filter(function(s){ return !(s.pdeId == pdeId && s.setNumber == setNum); });
-  loggedSets.push({ pdeId: parseInt(pdeId), exerciseId: parseInt(ex.exerciseId), setNumber: setNum,
-    targetReps: ex.targetReps, actualReps: reps, weightKg: weight, rpe: rpe, skipped: skipped, setType: currentSetType });
+
+  if(currentSetType === 'Drop' && !skipped && pendingDrops.length > 0){
+    // Every stashed drop point becomes its own row (drop_index 0,1,2...),
+    // then the currently-entered fields become the final drop.
+    pendingDrops.forEach(function(d, i){
+      loggedSets.push({ pdeId: parseInt(pdeId), exerciseId: parseInt(ex.exerciseId), setNumber: setNum,
+        targetReps: ex.targetReps, actualReps: d.reps, weightKg: d.weightKg, rpe: rpe, skipped: false,
+        setType: 'Drop', dropIndex: i });
+    });
+    loggedSets.push({ pdeId: parseInt(pdeId), exerciseId: parseInt(ex.exerciseId), setNumber: setNum,
+      targetReps: ex.targetReps, actualReps: reps, weightKg: weight, rpe: rpe, skipped: false,
+      setType: 'Drop', dropIndex: pendingDrops.length });
+    pendingDrops = [];
+    renderDropList();
+  } else {
+    loggedSets.push({ pdeId: parseInt(pdeId), exerciseId: parseInt(ex.exerciseId), setNumber: setNum,
+      targetReps: ex.targetReps, actualReps: reps, weightKg: weight, rpe: rpe, skipped: skipped,
+      setType: currentSetType, dropIndex: 0 });
+  }
 
   ex.doneSets++;
   doneCount++;

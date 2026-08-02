@@ -57,6 +57,9 @@ namespace FitForge.Models
         public string TrackingMode { get; set; } = "reps_only";
         public string Difficulty { get; set; } = "Beginner";
         public string Description { get; set; } = "";
+        public string? EquipmentType { get; set; }
+        public string? MovementPattern { get; set; }
+        public bool? IsCompound { get; set; }
         public bool IsActive { get; set; } = true;
         public bool TrackWeight => TrackingMode == "reps_weight";
         public bool TrackDuration => TrackingMode == "duration";
@@ -237,6 +240,7 @@ namespace FitForge.Models
         public double? TargetWeightKg { get; set; }
         public int RestSeconds { get; set; } = 90;
         public string Notes { get; set; } = "";
+        public string? EquipmentType { get; set; }
         public bool TrackWeight => TrackingMode == "reps_weight";
         public bool TrackDuration => TrackingMode == "duration";
     }
@@ -297,6 +301,7 @@ namespace FitForge.Models
         public string FlagReason { get; set; } = "";
         public int? AlternativeId { get; set; }
         public string AlternativeName { get; set; } = "";
+        public string? EquipmentType { get; set; }
         public bool TrackWeight => TrackingMode == "reps_weight";
         public bool TrackDuration => TrackingMode == "duration";
         public int? LastReps { get; set; }
@@ -370,6 +375,33 @@ namespace FitForge.Models
         public int RequiredReps { get; set; }
         public int UserBest { get; set; }
         public bool Met => UserBest >= RequiredReps;
+    }
+
+    public class MaxTestAttemptModel
+    {
+        public int AttemptId { get; set; }
+        public int Reps { get; set; }
+        public double? WeightKg { get; set; }
+        public DateTime AttemptedAt { get; set; }
+    }
+
+    public class MaxTestHubItemModel
+    {
+        public int ExerciseId { get; set; }
+        public string ExerciseName { get; set; } = "";
+        public string TrackingMode { get; set; } = "reps_only"; // reps_only | reps_weight
+        public int BestReps { get; set; }
+        public double? BestWeightKg { get; set; }
+        public bool IsSkillRequirement { get; set; }
+        public string? SkillName { get; set; }
+        public int? RequiredReps { get; set; }
+    }
+
+    public class LogMaxTestReq
+    {
+        public int ExerciseId { get; set; }
+        public int Reps { get; set; }
+        public double? WeightKg { get; set; }
     }
 
     // ── Workout Calendar ──────────────────────────────────────
@@ -446,6 +478,12 @@ namespace FitForge.Models
     {
         public List<SkillModel> Skills { get; set; } = new();
         public List<PersonalRecordModel> PRs { get; set; } = new();
+    }
+
+    public class MaxTestVM
+    {
+        public List<MaxTestHubItemModel> SkillExercises { get; set; } = new();
+        public List<MaxTestHubItemModel> GymLifts { get; set; } = new();
     }
 
     public class ProfileVM
@@ -555,6 +593,7 @@ namespace FitForge.Models
         public int? Rpe { get; set; }
         public bool Skipped { get; set; }
         public string SetType { get; set; } = "Working"; // Working | Warmup | Amrap | Drop | Tempo
+        public int DropIndex { get; set; } = 0; // 0 = first weight; >0 only for Drop sets
     }
 
     public class CreateProgramReq

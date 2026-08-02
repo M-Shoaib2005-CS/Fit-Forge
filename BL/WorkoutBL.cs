@@ -104,6 +104,7 @@ namespace FitForge.BL
                     FlagReason      = flag?.Reason ?? "",
                     AlternativeId   = flag?.AlternativeId,
                     AlternativeName = flag?.AlternativeName ?? "",
+                    EquipmentType   = ex.EquipmentType,
                     LastReps        = last.reps,
                     LastWeightKg    = last.weightKg,
                     LastDate        = last.date
@@ -140,7 +141,7 @@ namespace FitForge.BL
                 int targetReps = s.TargetReps > 0 ? s.TargetReps : 0;
                 string setType = string.IsNullOrWhiteSpace(s.SetType) ? "Working" : s.SetType;
                 wDL.LogSet(req.SessionId, s.ExerciseId, s.PdeId,
-                    s.SetNumber, targetReps, s.ActualReps, s.WeightKg, s.Rpe, s.Skipped, setType);
+                    s.SetNumber, targetReps, s.ActualReps, s.WeightKg, s.Rpe, s.Skipped, setType, s.DropIndex);
 
                 // Warm-up sets are deliberately sub-maximal, so they must never
                 // count toward a PR or toward session volume — otherwise a light
