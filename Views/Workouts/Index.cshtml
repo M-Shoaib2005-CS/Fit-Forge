@@ -1,299 +1,375 @@
 @model FitForge.Models.WorkoutsVM
-@{ ViewData["Title"]="Workouts"; }
+@{
+    ViewData["Title"] = "Workouts";
+}
 
 <div class="page-header">
-  <div><div class="eyebrow">TRAINING LOG</div><h1 class="page-title">Workouts</h1></div>
+    <div><div class="eyebrow">TRAINING LOG</div><h1 class="page-title">Workouts</h1></div>
 </div>
 
 <!-- ── TABS ────────────────────────────────────────────────── -->
 <div class="tab-bar mb-2">
-  <button class="tab-pill active" data-tour="tab-history" onclick="switchTab('history',this)">Calendar</button>
-  <button class="tab-pill" data-tour="tab-prs"        onclick="switchTab('prs',this)">PRs</button>
-  <button class="tab-pill" data-tour="tab-badges"        onclick="switchTab('badges',this)">Badges</button>
+    <button class="tab-pill active" data-tour="tab-history" onclick="switchTab('history',this)">Calendar</button>
+    <button class="tab-pill" data-tour="tab-prs" onclick="switchTab('prs',this)">PRs</button>
+    <button class="tab-pill" data-tour="tab-badges" onclick="switchTab('badges',this)">Badges</button>
 </div>
 
 <!-- ── CALENDAR + HISTORY (combined) ──────────────────────────── -->
 <div id="tab-history">
-  <div class="cal-header" data-tour="cal-header">
-    <button class="btn-icon cal-nav" onclick="calNav(-1)">‹</button>
-    <span class="cal-month-label" id="cal-label"></span>
-    <button class="btn-icon cal-nav" onclick="calNav(1)">›</button>
-  </div>
-  <div class="eyebrow mb-1">CONSISTENCY</div>
-  <div class="cal-weekdays">
-    @foreach(var d in new[]{"M","T","W","T","F","S","S"}){<div class="cal-wd">@d</div>}
-  </div>
-  <div class="cal-grid" id="cal-grid"><div class="cal-loading">Loading…</div></div>
-  <div class="cal-legend">
-    <span><i class="dot done"></i> Trained</span>
-    <span><i class="dot rest"></i> Rest</span>
-    <span><i class="dot today"></i> Today</span>
-  </div>
+    <div class="cal-header" data-tour="cal-header">
+        <button class="btn-icon cal-nav" onclick="calNav(-1)">‹</button>
+        <span class="cal-month-label" id="cal-label"></span>
+        <button class="btn-icon cal-nav" onclick="calNav(1)">›</button>
+    </div>
+    <div class="eyebrow mb-1">CONSISTENCY</div>
+    <div class="cal-weekdays">
+        @foreach (var d in new[] { "M", "T", "W", "T", "F", "S", "S" })
+        {
+            <div class="cal-wd">@d</div>
+        }
+    </div>
+    <div class="cal-grid" id="cal-grid"><div class="cal-loading">Loading…</div></div>
+    <div class="cal-legend">
+        <span><i class="dot done"></i> Trained</span>
+        <span><i class="dot rest"></i> Rest</span>
+        <span><i class="dot today"></i> Today</span>
+    </div>
 
-  <div class="section-title mt-3 mb-1" data-tour="recent-sessions">Recent Sessions</div>
-  @if(!Model.History.Any()){
-    <div class="empty-state"><div class="empty-icon">🏋️</div><p>No sessions yet. Start your first workout!</p></div>
-  } else {
-    @for(int i=0; i<Model.History.Count; i++){
-      var s = Model.History[i];
-      <div class="session-card @(i>=3?"session-row-extra":"")" style="@(i>=3?"display:none":"")" onclick="openSession(@s.SessionId)">
-        <div class="session-card-left">
-          <div class="session-date">@s.StartedAt.ToString("MMM d")</div>
-          <div class="session-time text-muted">@s.StartedAt.ToString("HH:mm")</div>
-        </div>
-        <div class="session-card-mid">
-          <div class="session-name">@s.DayName</div>
-          <div class="text-muted" style="font-size:12px">@s.ProgramName</div>
-        </div>
-        <div class="session-card-right">
-          @if(s.DurationSecs.HasValue){<div class="session-dur text-neon">@s.DurationDisplay</div>}
-          <div class="text-muted" style="font-size:12px">@s.TotalSets sets</div>
-        </div>
-      </div>
+    <div class="section-title mt-3 mb-1" data-tour="recent-sessions">Recent Sessions</div>
+    @if (!Model.History.Any())
+    {
+        <div class="empty-state"><div class="empty-icon">🏋️</div><p>No sessions yet. Start your first workout!</p></div>
     }
-    @if(Model.History.Count > 3){
-      <button class="btn btn-sm w-100 mt-1" id="session-toggle-btn" onclick="toggleSessions()">Show More (@(Model.History.Count - 3) more)</button>
+    else
+    {
+        @for (int i = 0; i < Model.History.Count; i++)
+        {
+            var s = Model.History[i];
+            <div class="session-card @(i >= 3 ? "session-row-extra" : "")" style="@(i >= 3 ? "display:none" : "")" onclick="openSession(@s.SessionId)">
+                <div class="session-card-left">
+                    <div class="session-date">@s.StartedAt.ToString("MMM d")</div>
+                    <div class="session-time text-muted">@s.StartedAt.ToString("HH:mm")</div>
+                </div>
+                <div class="session-card-mid">
+                    <div class="session-name">@s.DayName</div>
+                    <div class="text-muted" style="font-size:12px">@s.ProgramName</div>
+                </div>
+                <div class="session-card-right">
+                    @if (s.DurationSecs.HasValue)
+                    {
+                        <div class="session-dur text-neon">@s.DurationDisplay</div>
+                    }
+                    <div class="text-muted" style="font-size:12px">@s.TotalSets sets</div>
+                </div>
+            </div>
+        }
+        @if (Model.History.Count > 3)
+        {
+            <button class="btn btn-sm w-100 mt-1" id="session-toggle-btn" onclick="toggleSessions()">Show More (@(Model.History.Count - 3) more)</button>
+        }
     }
-  }
 </div>
 
 <!-- ── PRs ─────────────────────────────────────────────────── -->
 <div id="tab-prs" style="display:none">
-  @if(!Model.PRs.Any()){
-    <div class="empty-state"><div class="empty-icon">🏆</div><p>No PRs yet — keep lifting!</p></div>
-  } else {
-    var grouped = Model.PRs.GroupBy(p=>p.ExerciseName).OrderBy(g=>g.Key);
-    @foreach(var g in grouped){
-      <div class="card mb-1">
-        <div class="pr-ex-header-row">
-          <div class="pr-ex-header">@g.Key</div>
-          <button class="btn btn-sm btn-outline" onclick="openPRChart(@g.First().ExerciseId,'@g.Key')">📈 Show Details</button>
-        </div>
-        @foreach(var pr in g.OrderByDescending(p=>p.AchievedAt)){
-          <div class="pr-row">
-            <span class="text-muted" style="font-size:12px">@pr.RecordType.Replace("_"," ")</span>
-            <span class="pr-val text-neon">
-              @if(pr.RecordType=="max_weight"){<span>@pr.WeightKg kg</span>}
-              else if(pr.RecordType=="max_volume"){<span>@Math.Round(pr.Value,1) kg vol</span>}
-              else{<span>@((int)pr.Value) reps</span>}
-            </span>
-            <span class="text-muted" style="font-size:12px">@pr.AchievedAt.ToString("MMM d")</span>
-          </div>
-        }
-      </div>
+    @if (!Model.PRs.Any())
+    {
+        <div class="empty-state"><div class="empty-icon">🏆</div><p>No PRs yet — keep lifting!</p></div>
     }
-  }
+    else
+    {
+        var grouped = Model.PRs.GroupBy(p => p.ExerciseName).OrderBy(g => g.Key);
+        @foreach (var g in grouped)
+        {
+            <div class="card mb-1">
+                <div class="pr-ex-header-row">
+                    <div class="pr-ex-header">@g.Key</div>
+                    <button class="btn btn-sm btn-outline" onclick="openPRChart(@g.First().ExerciseId,'@g.Key')">📈 Show Details</button>
+                </div>
+                @foreach (var pr in g.OrderByDescending(p => p.AchievedAt))
+                {
+                    <div class="pr-row">
+                        <span class="text-muted" style="font-size:12px">@pr.RecordType.Replace("_", " ")</span>
+                        <span class="pr-val text-neon">
+                            @if (pr.RecordType == "max_weight")
+                            {
+                                <span>@pr.WeightKg kg</span>
+                            }
+                            else if (pr.RecordType == "max_volume")
+                            {
+
+                                <span>@Math.Round(pr.Value, 1) kg vol</span>
+                            }
+                            else
+                            {
+
+                                <span>@((int)pr.Value) reps</span>
+                            }
+                        </span>
+                        <span class="text-muted" style="font-size:12px">@pr.AchievedAt.ToString("MMM d")</span>
+                    </div>
+                }
+            </div>
+        }
+    }
 </div>
 
 <!-- ── BADGES ──────────────────────────────────────────────── -->
 <div id="tab-badges" style="display:none">
-  @if(!Model.Badges.Any()){
-    <div class="empty-state">
-      <div class="empty-icon">🥉</div>
-      <p>Complete workouts to earn exercise badges!</p>
-      <p class="text-muted" style="font-size:13px;margin-top:8px">Bronze→Silver→Gold→Diamond→Legend</p>
-    </div>
-  } else {
-    <div class="badges-page-grid">
-      @foreach(var b in Model.Badges){
-        <div class="badge-card badge-card--@b.Tier">
-          <div class="badge-card-icon">
-            @(b.Tier=="legend"?"⚡":b.Tier=="diamond"?"💎":b.Tier=="gold"?"🥇":b.Tier=="silver"?"🥈":"🥉")
-          </div>
-          <div class="badge-card-name">@b.ExerciseName</div>
-          <div class="badge-card-tier">@b.Tier.ToUpper()</div>
-          <div class="badge-card-sub text-muted">@b.SessionCount sessions</div>
-          @if(b.Tier != "legend"){
-            <div class="badge-prog-bar">
-              <div class="badge-prog-fill badge-fill--@b.Tier" style="width:@b.ProgressPct%"></div>
-            </div>
-            <div class="badge-prog-label text-muted">@b.SessionCount / @b.NextTierAt</div>
-          } else {
-            <div class="text-neon" style="font-size:11px;margin-top:4px">MAX TIER</div>
-          }
+    @if (!Model.Badges.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-icon">🥉</div>
+            <p>Complete workouts to earn exercise badges!</p>
+            <p class="text-muted" style="font-size:13px;margin-top:8px">Bronze→Silver→Gold→Diamond→Legend</p>
         </div>
-      }
-    </div>
-  }
+    }
+    else
+    {
+        <div class="badges-page-grid">
+            @foreach (var b in Model.Badges)
+            {
+                <div class="badge-card badge-card--@b.Tier">
+                    <div class="badge-card-icon">
+                        @(b.Tier == "legend" ? "⚡" : b.Tier == "diamond" ? "💎" : b.Tier == "gold" ? "🥇" : b.Tier == "silver" ? "🥈" : "🥉")
+                    </div>
+                    <div class="badge-card-name">@b.ExerciseName</div>
+                    <div class="badge-card-tier">@b.Tier.ToUpper()</div>
+                    <div class="badge-card-sub text-muted">@b.SessionCount sessions</div>
+                    @if (b.Tier != "legend")
+                    {
+                        <div class="badge-prog-bar">
+                            <div class="badge-prog-fill badge-fill--@b.Tier" style="width:@b.ProgressPct%"></div>
+                        </div>
+                        <div class="badge-prog-label text-muted">@b.SessionCount / @b.NextTierAt</div>
+                    }
+                    else
+                    {
+                        <div class="text-neon" style="font-size:11px;margin-top:4px">MAX TIER</div>
+                    }
+                </div>
+            }
+        </div>
+    }
 </div>
 
 <!-- Session detail modal -->
 <div class="modal-backdrop" id="session-modal" style="display:none" onclick="if(event.target===this)closeSession()">
-  <div class="modal">
-    <div class="modal-header"><span id="sess-title">Session</span><button class="modal-close" onclick="closeSession()">✕</button></div>
-    <div class="modal-body" id="sess-body"><div class="loader"></div></div>
-  </div>
+    <div class="modal">
+        <div class="modal-header"><span id="sess-title">Session</span><button class="modal-close" onclick="closeSession()">✕</button></div>
+        <div class="modal-body" id="sess-body"><div class="loader"></div></div>
+    </div>
 </div>
 
 <div class="modal-backdrop" id="pr-chart-modal" style="display:none" onclick="if(event.target===this)closePRChart()">
-  <div class="modal">
-    <div class="modal-header"><span id="pr-chart-title">Progress</span><button class="modal-close" onclick="closePRChart()">✕</button></div>
-    <div class="modal-body" id="pr-chart-body">
-      <div style="position:relative; height:260px;"><canvas id="pr-chart-canvas"></canvas></div>
+    <div class="modal">
+        <div class="modal-header"><span id="pr-chart-title">Progress</span><button class="modal-close" onclick="closePRChart()">✕</button></div>
+        <div class="modal-body" id="pr-chart-body">
+            <div style="position:relative; height:260px;"><canvas id="pr-chart-canvas"></canvas></div>
+        </div>
     </div>
-  </div>
 </div>
 
 @section Scripts {
-<script>
-// ── TABS ──────────────────────────────────────────────────────
-function switchTab(id, btn){
-  document.querySelectorAll('[id^="tab-"]').forEach(t=>t.style.display='none');
-  document.getElementById('tab-'+id).style.display='';
-  document.querySelectorAll('.tab-pill').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-}
-
-// ── SESSIONS SHOW MORE ──────────────────────────────────────────
-function toggleSessions(){
-  var rows = document.querySelectorAll('.session-row-extra');
-  var btn  = document.getElementById('session-toggle-btn');
-  var expanded = btn.getAttribute('data-expanded') === '1';
-  rows.forEach(r => r.style.display = expanded ? 'none' : '');
-  btn.setAttribute('data-expanded', expanded ? '0' : '1');
-  btn.textContent = expanded ? 'Show More (' + rows.length + ' more)' : 'Show Less';
-}
-
-// ── CALENDAR ─────────────────────────────────────────────────
-var _calY=new Date().getFullYear(), _calM=new Date().getMonth()+1;
-var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
-function calNav(dir){ _calM+=dir; if(_calM>12){_calM=1;_calY++;} if(_calM<1){_calM=12;_calY--;} loadCal(_calY,_calM); }
-loadCal(_calY, _calM); // load immediately — calendar now lives on the default visible tab
-function loadCal(y,m){
-  document.getElementById('cal-label').textContent=MONTHS[m-1]+' '+y;
-  document.getElementById('cal-grid').innerHTML='<div class="cal-loading">Loading…</div>';
-  fetch('/Workouts/CalendarMonth?year='+y+'&month='+m)
-    .then(r=>r.json()).then(d=>{
-      if(!d.success){document.getElementById('cal-grid').innerHTML='<div class="text-muted">Error</div>';return;}
-      renderCal(d.days, y, m);
-    });
-}
-function renderCal(days, y, m){
-  var grid = document.getElementById('cal-grid');
-  grid.innerHTML='';
-  // leading blanks (Mon=0)
-  var first = new Date(y, m-1, 1).getDay(); // 0=Sun
-  var offset = first===0?6:first-1;
-  for(var i=0;i<offset;i++){ var b=document.createElement('div'); b.className='cal-cell cal-blank'; grid.appendChild(b); }
-  days.forEach(function(d){
-    var cell=document.createElement('div');
-    var cls='cal-cell';
-    if(d.isToday)  cls+=' cal-today';
-    if(d.isFuture) cls+=' cal-future';
-    if(d.hasWorkout && d.isCompleted) cls+=' cal-done';
-    else if(d.hasWorkout) cls+=' cal-started';
-    cell.className=cls;
-
-    var numSpan=document.createElement('span');
-    numSpan.textContent=new Date(d.date).getDate();
-    cell.appendChild(numSpan);
-
-    if(d.sessionId) cell.onclick=()=>openSession(d.sessionId);
-
-    // Water / weight markers
-    if(d.hasWater || d.hasWeight){
-      var marks=document.createElement('div'); marks.className='cal-marks';
-      if(d.hasWater)  { var wm=document.createElement('span'); wm.className='cal-mark-water';  wm.textContent='💧'; marks.appendChild(wm); }
-      if(d.hasWeight) { var gm=document.createElement('span'); gm.className='cal-mark-weight'; gm.textContent='⚖️'; marks.appendChild(gm); }
-      cell.appendChild(marks);
-    }
-
-    // Tooltip with details for the day
-    var tipParts=[];
-    if(d.hasWater)  tipParts.push('💧 '+d.waterMl+'ml'+(d.waterGoalMl?(' / '+d.waterGoalMl+'ml'):''));
-    if(d.hasWeight) tipParts.push('⚖️ '+d.weightKg+'kg');
-    if(d.hasWorkout) tipParts.push(d.isCompleted ? '🏋️ Workout done ('+d.setCount+' sets)' : '🏋️ Workout started');
-    if(tipParts.length){
-      var tip=document.createElement('div'); tip.className='cal-day-tip'; tip.textContent=tipParts.join(' · ');
-      cell.appendChild(tip);
-    }
-
-    grid.appendChild(cell);
-  });
-}
-
-// ── SESSION DETAIL ────────────────────────────────────────────
-function openSession(id){
-  document.getElementById('session-modal').style.display='flex';
-  document.getElementById('sess-body').innerHTML='<div class="loader"></div>';
-  fetch('/Workouts/SessionDetail?sessionId='+id).then(r=>r.json()).then(d=>{
-    if(!d.success){document.getElementById('sess-body').innerHTML='<p class="text-muted">No data.</p>';return;}
-    var dt=d.detail;
-    document.getElementById('sess-title').textContent=dt.dayLabel+' — '+new Date(dt.sessionDate).toLocaleDateString();
-    var html='<div class="session-detail">';
-    (dt.exercises||[]).forEach(function(ex){
-      html+='<div class="sess-ex"><div class="sess-ex-name">'+ex.exerciseName+'</div><div class="sess-sets">';
-      (ex.loggedSets||[]).forEach(function(s){
-        html+='<div class="sess-set"><span class="text-muted">Set '+s.setNumber+'</span> ';
-        if(s.wasSkipped){
-          html+='<span class="text-muted" style="font-style:italic">Skipped</span></div>';
-        } else {
-          html+='<span class="text-neon">'+s.actualReps+' reps'+(s.weightKg?' @@ '+s.weightKg+'kg':'')+'</span></div>';
+    <script>
+        // ── TABS ──────────────────────────────────────────────────────
+        function switchTab(id, btn){
+          document.querySelectorAll('[id^="tab-"]').forEach(t=>t.style.display='none');
+          document.getElementById('tab-'+id).style.display='';
+          document.querySelectorAll('.tab-pill').forEach(b=>b.classList.remove('active'));
+          btn.classList.add('active');
         }
-      });
-      html+='</div></div>';
-    });
-    html+='</div>';
-    document.getElementById('sess-body').innerHTML=html;
-  });
-}
-function closeSession(){ document.getElementById('session-modal').style.display='none'; }
 
-// ── PR PROGRESS CHART ──────────────────────────────────────────
-var _prChart = null;
-function openPRChart(exerciseId, exerciseName){
-  document.getElementById('pr-chart-modal').style.display='flex';
-  document.getElementById('pr-chart-title').textContent = exerciseName;
-  fetch('/Workouts/ExerciseHistory?exerciseId='+exerciseId+'&exerciseName='+encodeURIComponent(exerciseName))
-    .then(r=>r.json()).then(d=>{
-      if(!d.success || !d.points || !d.points.length){
-        document.getElementById('pr-chart-body').innerHTML='<p class="text-muted">Not enough session history yet — log a few more workouts for this exercise.</p>';
-        return;
-      }
-      document.getElementById('pr-chart-body').innerHTML='<div style="position:relative; height:260px;"><canvas id="pr-chart-canvas"></canvas></div>';
-      var labels = d.points.map(p=>p.label);
-      var datasets = [];
-      if(d.trackWeight){
-        datasets.push({ label:'Weight (kg)', data:d.points.map(p=>p.weight), borderColor:'#ff5a2b', backgroundColor:'rgba(255,90,43,.12)', tension:.35, yAxisID:'y', pointRadius:3, pointBackgroundColor:'#ff5a2b' });
-        datasets.push({ label:'Volume (kg)', data:d.points.map(p=>p.volume), borderColor:'#d7f24c', backgroundColor:'rgba(215,242,76,.10)', tension:.35, yAxisID:'y1', pointRadius:3, pointBackgroundColor:'#d7f24c' });
-      } else {
-        datasets.push({ label:'Reps', data:d.points.map(p=>p.reps), borderColor:'#d7f24c', backgroundColor:'rgba(215,242,76,.12)', tension:.35, yAxisID:'y', pointRadius:3, pointBackgroundColor:'#d7f24c' });
-      }
-      if(_prChart) _prChart.destroy();
-      var ctx = document.getElementById('pr-chart-canvas').getContext('2d');
-      _prChart = new Chart(ctx, {
-        type:'line',
-        data:{ labels:labels, datasets:datasets },
-        options:{
-          responsive:true, maintainAspectRatio:false,
-          plugins:{ legend:{ labels:{ color:'#f2efe6', font:{family:'Space Mono'} } } },
-          scales:{
-            x:{ ticks:{ color:'#8b8d93', maxTicksLimit:6 }, grid:{ color:'#38393e' } },
-            y:{ position:'left', ticks:{ color:'#ff5a2b' }, grid:{ color:'#38393e' }, title:{ display:true, text:d.trackWeight?'kg':'reps', color:'#8b8d93' } },
-            y1:{ position:'right', display:d.trackWeight, ticks:{ color:'#d7f24c' }, grid:{ display:false } }
+        // ── SESSIONS SHOW MORE ──────────────────────────────────────────
+        function toggleSessions(){
+          var rows = document.querySelectorAll('.session-row-extra');
+          var btn  = document.getElementById('session-toggle-btn');
+          var expanded = btn.getAttribute('data-expanded') === '1';
+          rows.forEach(r => r.style.display = expanded ? 'none' : '');
+          btn.setAttribute('data-expanded', expanded ? '0' : '1');
+          btn.textContent = expanded ? 'Show More (' + rows.length + ' more)' : 'Show Less';
+        }
+
+        // ── CALENDAR ─────────────────────────────────────────────────
+        var _calY=new Date().getFullYear(), _calM=new Date().getMonth()+1;
+        var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+        function calNav(dir){ _calM+=dir; if(_calM>12){_calM=1;_calY++;} if(_calM<1){_calM=12;_calY--;} loadCal(_calY,_calM); }
+        loadCal(_calY, _calM); // load immediately — calendar now lives on the default visible tab
+        function loadCal(y,m){
+          document.getElementById('cal-label').textContent=MONTHS[m-1]+' '+y;
+          document.getElementById('cal-grid').innerHTML='<div class="cal-loading">Loading…</div>';
+          fetch('/Workouts/CalendarMonth?year='+y+'&month='+m)
+            .then(r=>r.json()).then(d=>{
+              if(!d.success){document.getElementById('cal-grid').innerHTML='<div class="text-muted">Error</div>';return;}
+              renderCal(d.days, y, m);
+            });
+        }
+        function renderCal(days, y, m){
+          var grid = document.getElementById('cal-grid');
+          grid.innerHTML='';
+          // leading blanks (Mon=0)
+          var first = new Date(y, m-1, 1).getDay(); // 0=Sun
+          var offset = first===0?6:first-1;
+          for(var i=0;i<offset;i++){ var b=document.createElement('div'); b.className='cal-cell cal-blank'; grid.appendChild(b); }
+          days.forEach(function(d){
+            var cell=document.createElement('div');
+            var cls='cal-cell';
+            if(d.isToday)  cls+=' cal-today';
+            if(d.isFuture) cls+=' cal-future';
+            if(d.hasWorkout && d.isCompleted) cls+=' cal-done';
+            else if(d.hasWorkout) cls+=' cal-started';
+            cell.className=cls;
+
+            var numSpan=document.createElement('span');
+            numSpan.textContent=new Date(d.date).getDate();
+            cell.appendChild(numSpan);
+
+            if(d.sessionId) cell.onclick=()=>openSession(d.sessionId);
+
+            // Water / weight markers
+            if(d.hasWater || d.hasWeight){
+              var marks=document.createElement('div'); marks.className='cal-marks';
+              if(d.hasWater)  { var wm=document.createElement('span'); wm.className='cal-mark-water';  wm.textContent='💧'; marks.appendChild(wm); }
+              if(d.hasWeight) { var gm=document.createElement('span'); gm.className='cal-mark-weight'; gm.textContent='⚖️'; marks.appendChild(gm); }
+              cell.appendChild(marks);
+            }
+
+            // Tooltip with details for the day
+            var tipParts=[];
+            if(d.hasWater)  tipParts.push('💧 '+d.waterMl+'ml'+(d.waterGoalMl?(' / '+d.waterGoalMl+'ml'):''));
+            if(d.hasWeight) tipParts.push('⚖️ '+d.weightKg+'kg');
+            if(d.hasWorkout) tipParts.push(d.isCompleted ? '🏋️ Workout done ('+d.setCount+' sets)' : '🏋️ Workout started');
+            if(tipParts.length){
+              var tip=document.createElement('div'); tip.className='cal-day-tip'; tip.textContent=tipParts.join(' · ');
+              cell.appendChild(tip);
+            }
+
+            grid.appendChild(cell);
+          });
+        }
+
+        // ── SESSION DETAIL ────────────────────────────────────────────
+        function openSession(id){
+          document.getElementById('session-modal').style.display='flex';
+          document.getElementById('sess-body').innerHTML='<div class="loader"></div>';
+          fetch('/Workouts/SessionDetail?sessionId='+id).then(r=>r.json()).then(d=>{
+            if(!d.success){document.getElementById('sess-body').innerHTML='<p class="text-muted">No data.</p>';return;}
+            var dt=d.detail;
+            document.getElementById('sess-title').textContent=dt.dayLabel+' — '+new Date(dt.sessionDate).toLocaleDateString();
+            var html='<div class="session-detail">';
+            (dt.exercises||[]).forEach(function(ex){
+              html+='<div class="sess-ex"><div class="sess-ex-name">'+ex.exerciseName+'</div><div class="sess-sets">';
+
+              // Rows arrive ordered by setNumber then dropIndex. setNumber 0 is a
+              // standalone warmup set (not part of the numbered schedule). Any
+              // setNumber with more than one row is a drop-set sequence — group
+              // those into one card instead of repeating "Set N" per drop.
+              var groups = {}, order = [];
+              (ex.loggedSets||[]).forEach(function(s){
+                if(!groups[s.setNumber]){ groups[s.setNumber] = []; order.push(s.setNumber); }
+                groups[s.setNumber].push(s);
+              });
+
+              order.forEach(function(setNum){
+                var rows = groups[setNum], first = rows[0];
+
+                if(setNum === 0){
+                  html += sessSetCard('Warmup', 'badge-warmup', 'Warmup', first);
+                  return;
+                }
+                if(first.wasSkipped){
+                  html += '<div class="sess-set"><div class="sess-set-head"><span class="sess-set-label">Set '+setNum+'</span>' +
+                    '<span class="text-muted" style="font-style:italic;font-size:12px">Skipped</span></div></div>';
+                  return;
+                }
+                if(rows.length > 1 || first.setType === 'Drop'){
+                  html += '<div class="sess-set"><div class="sess-set-head">' +
+                    '<span class="sess-set-label">Set '+setNum+'</span><span class="badge badge-drop">Drop Set</span></div>' +
+                    '<div class="sess-set-val" style="margin-top:4px">'+sessSetVal(first)+'</div>';
+                  rows.slice(1).forEach(function(d){
+                    html += '<div class="sess-drop-row"><span class="sess-drop-tag">↓ Drop</span><span class="sess-set-val">'+sessSetVal(d)+'</span></div>';
+                  });
+                  html += '</div>';
+                  return;
+                }
+
+                var typeBadge = { Amrap:['badge-amrap','AMRAP'], Tempo:['badge-tempo','Tempo'] }[first.setType] || ['badge-working','Working'];
+                html += sessSetCard('Set '+setNum, typeBadge[0], typeBadge[1], first);
+              });
+
+              html+='</div></div>';
+            });
+            html+='</div>';
+            document.getElementById('sess-body').innerHTML=html;
+          });
+        }
+        // Weight-first phrasing, e.g. "60 kg for 10 reps" instead of the old "10 reps at 60kg" format.
+        function sessSetVal(row){
+          if(row.weightKg) return '<b>'+row.weightKg+' kg</b> for '+row.actualReps+' reps';
+          return '<b>'+row.actualReps+'</b> reps';
+        }
+        function sessSetCard(label, badgeClass, badgeText, row){
+          return '<div class="sess-set"><div class="sess-set-head">' +
+            '<span class="sess-set-label">'+label+'</span><span class="badge '+badgeClass+'">'+badgeText+'</span></div>' +
+            '<div class="sess-set-val" style="margin-top:4px">'+sessSetVal(row)+'</div></div>';
+        }
+        function closeSession(){ document.getElementById('session-modal').style.display='none'; }
+
+        // ── PR PROGRESS CHART ──────────────────────────────────────────
+        var _prChart = null;
+        function openPRChart(exerciseId, exerciseName){
+          document.getElementById('pr-chart-modal').style.display='flex';
+          document.getElementById('pr-chart-title').textContent = exerciseName;
+          fetch('/Workouts/ExerciseHistory?exerciseId='+exerciseId+'&exerciseName='+encodeURIComponent(exerciseName))
+            .then(r=>r.json()).then(d=>{
+              if(!d.success || !d.points || !d.points.length){
+                document.getElementById('pr-chart-body').innerHTML='<p class="text-muted">Not enough session history yet — log a few more workouts for this exercise.</p>';
+                return;
+              }
+              document.getElementById('pr-chart-body').innerHTML='<div style="position:relative; height:260px;"><canvas id="pr-chart-canvas"></canvas></div>';
+              var labels = d.points.map(p=>p.label);
+              var datasets = [];
+              if(d.trackWeight){
+                datasets.push({ label:'Weight (kg)', data:d.points.map(p=>p.weight), borderColor:'#ff5a2b', backgroundColor:'rgba(255,90,43,.12)', tension:.35, yAxisID:'y', pointRadius:3, pointBackgroundColor:'#ff5a2b' });
+                datasets.push({ label:'Volume (kg)', data:d.points.map(p=>p.volume), borderColor:'#d7f24c', backgroundColor:'rgba(215,242,76,.10)', tension:.35, yAxisID:'y1', pointRadius:3, pointBackgroundColor:'#d7f24c' });
+              } else {
+                datasets.push({ label:'Reps', data:d.points.map(p=>p.reps), borderColor:'#d7f24c', backgroundColor:'rgba(215,242,76,.12)', tension:.35, yAxisID:'y', pointRadius:3, pointBackgroundColor:'#d7f24c' });
+              }
+              if(_prChart) _prChart.destroy();
+              var ctx = document.getElementById('pr-chart-canvas').getContext('2d');
+              _prChart = new Chart(ctx, {
+                type:'line',
+                data:{ labels:labels, datasets:datasets },
+                options:{
+                  responsive:true, maintainAspectRatio:false,
+                  plugins:{ legend:{ labels:{ color:'#f2efe6', font:{family:'Space Mono'} } } },
+                  scales:{
+                    x:{ ticks:{ color:'#8b8d93', maxTicksLimit:6 }, grid:{ color:'#38393e' } },
+                    y:{ position:'left', ticks:{ color:'#ff5a2b' }, grid:{ color:'#38393e' }, title:{ display:true, text:d.trackWeight?'kg':'reps', color:'#8b8d93' } },
+                    y1:{ position:'right', display:d.trackWeight, ticks:{ color:'#d7f24c' }, grid:{ display:false } }
+                  }
+                }
+              });
+            });
+        }
+        function closePRChart(){ document.getElementById('pr-chart-modal').style.display='none'; }
+
+        // ── Workouts-page tour ───────────────────────────────────────
+        var FF_UID = @(Context.Session.GetInt32("uid") ?? 0);
+        (function(){
+          var tourParam = new URLSearchParams(location.search).get('tour');
+          var forceTour = tourParam === 'workouts';
+          if(forceTour || !FFTour.hasSeen(FF_UID, 'workouts')){
+            setTimeout(function(){
+              FFTour.start([
+                { selector: '[data-tour="cal-header"]', title: 'Consistency Calendar', text: "Every trained day lights up here so you can see your consistency at a glance, month by month." },
+                { selector: '[data-tour="recent-sessions"]', title: 'Session History', text: "Every finished workout lands here — tap any one to see exactly what you logged that day." },
+                { selector: '[data-tour="tab-prs"]', title: 'Personal Records', text: "Automatically detected the moment you beat a previous best — no manual logging needed." },
+                { selector: '[data-tour="tab-badges"]', title: 'Badges', text: "Streaks and milestones you've unlocked along the way." }
+              ], FF_UID, 'workouts', { lastLabel: 'Done' });
+            }, 700);
           }
-        }
-      });
-    });
-}
-function closePRChart(){ document.getElementById('pr-chart-modal').style.display='none'; }
-
-// ── Workouts-page tour ───────────────────────────────────────
-var FF_UID = @(Context.Session.GetInt32("uid") ?? 0);
-(function(){
-  var tourParam = new URLSearchParams(location.search).get('tour');
-  var forceTour = tourParam === 'workouts';
-  if(forceTour || !FFTour.hasSeen(FF_UID, 'workouts')){
-    setTimeout(function(){
-      FFTour.start([
-        { selector: '[data-tour="cal-header"]', title: 'Consistency Calendar', text: "Every trained day lights up here so you can see your consistency at a glance, month by month." },
-        { selector: '[data-tour="recent-sessions"]', title: 'Session History', text: "Every finished workout lands here — tap any one to see exactly what you logged that day." },
-        { selector: '[data-tour="tab-prs"]', title: 'Personal Records', text: "Automatically detected the moment you beat a previous best — no manual logging needed." },
-        { selector: '[data-tour="tab-badges"]', title: 'Badges', text: "Streaks and milestones you've unlocked along the way." }
-      ], FF_UID, 'workouts', { lastLabel: 'Done' });
-    }, 700);
-  }
-})();
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+        })();
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 }

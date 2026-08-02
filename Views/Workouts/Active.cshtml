@@ -1,544 +1,610 @@
 @model FitForge.Models.ActiveWorkoutVM
-@{ ViewData["Title"]="Active Workout"; ViewData["Page"]="Workouts"; }
+@{
+    ViewData["Title"] = "Active Workout"; ViewData["Page"] = "Workouts";
+}
 
 <div class="active-header">
-  <div class="active-header-left">
-    <div class="active-title">@Model.DayName</div>
-    <div class="active-sub text-muted">@Model.ProgramName</div>
-  </div>
-  <div class="active-header-right">
-    <div class="active-timer" id="elapsed">00:00</div>
-    <div class="active-sets-pill" id="sets-done-pill">0/@Model.Exercises.Sum(e=>e.TargetSets)</div>
-  </div>
+    <div class="active-header-left">
+        <div class="active-title">@Model.DayName</div>
+        <div class="active-sub text-muted">@Model.ProgramName</div>
+    </div>
+    <div class="active-header-right">
+        <div class="active-timer" id="elapsed">00:00</div>
+        <div class="active-sets-pill" id="sets-done-pill">0/@Model.Exercises.Sum(e => e.TargetSets)</div>
+    </div>
 </div>
 
 <div class="session-progresswrap">
-  <div class="session-progressbar"><div class="fill" id="session-fill"></div></div>
-  <div class="cap"><span id="session-cap">0 of @Model.Exercises.Sum(e=>e.TargetSets) sets logged</span><span id="session-pct">0%</span></div>
+    <div class="session-progressbar"><div class="fill" id="session-fill"></div></div>
+    <div class="cap"><span id="session-cap">0 of @Model.Exercises.Sum(e => e.TargetSets) sets logged</span><span id="session-pct">0%</span></div>
 </div>
 
 <div id="exercise-list">
-  @foreach(var ex in Model.Exercises){
-    <div class="exrow" id="ex-@ex.PdeId" data-pde="@ex.PdeId">
-      <div class="exrow-main" onclick="openSetSheet(@ex.PdeId)">
-        <div class="exicon">
-          <img src="/images/exercises/@(ex.ExerciseId).gif" onerror="this.onerror=null;this.src='/images/exercises/@(ex.ExerciseId).svg';this.onerror=function(){this.style.display='none';this.nextElementSibling.style.display='flex';}" loading="lazy"/>
-          <div class="ex-thumb-fallback" style="display:none">💪</div>
-        </div>
-        <div class="exmeta">
-          <div class="n">@ex.ExerciseName @if(ex.IsFlagged){<span title="@ex.FlagReason">⚠️</span>}</div>
-          <div class="s">
-            @ex.TargetSets × @if(ex.TrackDuration){<span>@ex.TargetReps s</span>}else{<span>@ex.TargetReps reps</span>}
-            @if(ex.TargetWeight.HasValue){<span> @@ @(ex.TargetWeight)kg</span>}
-          </div>
+    @foreach (var ex in Model.Exercises)
+    {
+        <div class="exrow" id="ex-@ex.PdeId" data-pde="@ex.PdeId">
+            <div class="exrow-main" onclick="openSetSheet(@ex.PdeId)">
+                <div class="exicon">
+                    <img src="/images/exercises/@(ex.ExerciseId).gif" onerror="this.onerror=null;this.src='/images/exercises/@(ex.ExerciseId).svg';this.onerror=function(){this.style.display='none';this.nextElementSibling.style.display='flex';}" loading="lazy" />
+                    <div class="ex-thumb-fallback" style="display:none">💪</div>
+                </div>
+                <div class="exmeta">
+                    <div class="n">@ex.ExerciseName @if(ex.IsFlagged){
+                        <span title="@ex.FlagReason">⚠️</span>
+                    }
+                </div>
+                <div class="s">
+                    @ex.TargetSets × @if(ex.TrackDuration){
+                    <span>@ex.TargetReps s</span>
+                }else
+                {
+
+                    <span>@ex.TargetReps reps</span>
+                }
+                @if (ex.TargetWeight.HasValue)
+                {
+                    <span> @@ @(ex.TargetWeight)kg</span>
+                }
+            </div>
         </div>
         <div class="exsets" id="dots-@ex.PdeId">
-          @for(int s=1;s<=ex.TargetSets;s++){<span class="setdot" id="dot-@(ex.PdeId)-@s"></span>}
+            @if (ex.TrackWeight)
+            {
+                <span class="setdot warmupdot" id="warmupdot-@ex.PdeId" title="Warm-up set"></span>
+            }
+            @for (int s = 1; s <= ex.TargetSets; s++)
+            {
+                <span class="setdot" id="dot-@(ex.PdeId)-@s"></span>
+            }
         </div>
         <div class="chev" id="chev-@ex.PdeId">›</div>
-      </div>
+    </div>
 
-      @if(ex.IsFlagged){
+    @if (ex.IsFlagged)
+    {
         <div class="exrow-flagnote">
-          <span>🩹 @ex.FlagReason</span>
-          @if(ex.AlternativeId.HasValue){
-            <button class="btn btn-sm" onclick="event.stopPropagation();swapExercise(@ex.PdeId,@ex.AlternativeId,'@ex.AlternativeName')">💡 Use @ex.AlternativeName</button>
-          }
+            <span>🩹 @ex.FlagReason</span>
+            @if (ex.AlternativeId.HasValue)
+            {
+                <button class="btn btn-sm" onclick="event.stopPropagation();swapExercise(@ex.PdeId,@ex.AlternativeId,'@ex.AlternativeName')">💡 Use @ex.AlternativeName</button>
+            }
         </div>
-      }
+    }
 
-      <div class="exrow-restbar" id="rest-@ex.PdeId" style="display:none">
+    <div class="exrow-restbar" id="rest-@ex.PdeId" style="display:none">
         <span class="rb-txt" id="rest-count-@ex.PdeId">90</span>
         <div class="rb-track"><div class="rb-fill" id="rest-fill-@ex.PdeId" style="width:100%"></div></div>
         <button class="rb-skip" onclick="skipRest(@ex.PdeId)">skip</button>
-      </div>
     </div>
+</div>
   }
 </div>
 
 <!-- Reusable bottom sheet: rep stepper / rest view -->
 <div class="ff-sheet-backdrop" id="ff-sheet-backdrop" onclick="if(event.target===this)closeSetSheet()">
-  <div class="ff-sheet" id="ff-sheet">
-    <div class="ff-sheet-handle"></div>
+    <div class="ff-sheet" id="ff-sheet">
+        <div class="ff-sheet-handle"></div>
 
-    <div id="ff-sheet-log">
-      <div class="ff-sheet-head">
-        <div>
-          <div class="eyebrow" id="ff-sheet-target">TARGET</div>
-          <div class="n" id="ff-sheet-name">Exercise</div>
+        <div id="ff-sheet-log">
+            <div class="ff-sheet-head">
+                <div>
+                    <div class="eyebrow" id="ff-sheet-target">TARGET</div>
+                    <div class="n" id="ff-sheet-name">Exercise</div>
+                </div>
+                <div class="setno" id="ff-sheet-setno">SET 1/1</div>
+            </div>
+            <div class="ff-last-time" id="ff-last-time" style="display:none"></div>
+
+            <div class="ff-settype-row" id="ff-settype-row">
+                <div class="ff-settype-pill active" data-type="Working" onclick="pickSetType('Working',this)">Working</div>
+                <div class="ff-settype-pill" data-type="Amrap" onclick="pickSetType('Amrap',this)">AMRAP</div>
+                <div class="ff-settype-pill" data-type="Drop" onclick="pickSetType('Drop',this)">Drop</div>
+                <div class="ff-settype-pill" data-type="Tempo" onclick="pickSetType('Tempo',this)">Tempo</div>
+            </div>
+            <button type="button" id="ff-warmup-btn" onclick="doWarmupFill()" style="display:none;width:100%;padding:8px;margin-bottom:14px;border-radius:10px;background:none;border:1px dashed var(--line);color:var(--muted);font-size:12px;cursor:pointer">🔥 Do a warm-up set</button>
+
+            <div class="ff-stepper">
+                <div class="ff-stepbtn" onclick="stepRep(-1)">–</div>
+                <div class="ff-repnum" id="ff-rep-count">0</div>
+                <div class="ff-stepbtn" onclick="stepRep(1)">+</div>
+            </div>
+            <div class="ff-repcap" id="ff-rep-cap">reps completed</div>
+
+            <div class="ff-fieldrow" id="ff-weight-row">
+                <div class="ff-field">
+                    <div class="flbl">Weight (kg)</div>
+                    <input type="number" class="fval" id="ff-weight-input" placeholder="Bodyweight" step="0.5" min="0" oninput="updatePlateMath()" />
+                </div>
+                <div class="ff-field">
+                    <div class="flbl">Rest Next</div>
+                    <div class="fval" id="ff-rest-preview">90s</div>
+                </div>
+            </div>
+            <div id="ff-plate-suggestion" style="display:none;background:#1e2e22;border:1px solid #2a3d2f;border-radius:10px;padding:8px 12px;margin-bottom:10px;color:#8fd99f;font-size:12px"></div>
+
+            <div id="ff-drop-list" style="display:none;margin-bottom:10px"></div>
+            <button type="button" id="ff-add-drop-btn" onclick="addDropPoint()" style="display:none;width:100%;padding:10px;margin-bottom:10px;border-radius:12px;background:none;border:1px dashed var(--accent);color:var(--accent);font-size:13px;font-weight:600;cursor:pointer">+ Add Drop Point →</button>
+
+            <div class="ff-rpewrap">
+                <div class="ff-rpe-head"><span>Effort · RPE</span><b id="ff-rpe-val">7</b></div>
+                <input type="range" min="1" max="10" value="7" id="ff-rpe-slider" oninput="document.getElementById('ff-rpe-val').textContent=this.value">
+            </div>
+
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-outline" onclick="skipCurrentSet()">Skip Set</button>
+                <button class="btn btn-solid" style="flex:1" id="ff-log-btn" onclick="logCurrentSet()">✓ Log Set</button>
+            </div>
         </div>
-        <div class="setno" id="ff-sheet-setno">SET 1/1</div>
-      </div>
-      <div class="ff-last-time" id="ff-last-time" style="display:none"></div>
 
-      <div class="ff-settype-row" id="ff-settype-row">
-        <div class="ff-settype-pill active" data-type="Working" onclick="pickSetType('Working',this)">Working</div>
-        <div class="ff-settype-pill" data-type="Amrap" onclick="pickSetType('Amrap',this)">AMRAP</div>
-        <div class="ff-settype-pill" data-type="Drop" onclick="pickSetType('Drop',this)">Drop</div>
-        <div class="ff-settype-pill" data-type="Tempo" onclick="pickSetType('Tempo',this)">Tempo</div>
-      </div>
-      <button type="button" id="ff-warmup-btn" onclick="doWarmupFill()" style="display:none;width:100%;padding:8px;margin-bottom:14px;border-radius:10px;background:none;border:1px dashed var(--line);color:var(--muted);font-size:12px;cursor:pointer">🔥 Do a warm-up set</button>
-
-      <div class="ff-stepper">
-        <div class="ff-stepbtn" onclick="stepRep(-1)">–</div>
-        <div class="ff-repnum" id="ff-rep-count">0</div>
-        <div class="ff-stepbtn" onclick="stepRep(1)">+</div>
-      </div>
-      <div class="ff-repcap" id="ff-rep-cap">reps completed</div>
-
-      <div class="ff-fieldrow" id="ff-weight-row">
-        <div class="ff-field">
-          <div class="flbl">Weight (kg)</div>
-          <input type="number" class="fval" id="ff-weight-input" placeholder="Bodyweight" step="0.5" min="0" oninput="updatePlateMath()"/>
+        <div id="ff-sheet-rest" style="display:none">
+            <div class="ff-rest-view">
+                <div class="eyebrow">RESTING</div>
+                <div class="n" id="ff-rest-exname" style="margin-bottom:4px;">Exercise</div>
+                <div class="ff-rest-ring">
+                    <svg viewBox="0 0 100 100">
+                        <circle class="ff-rest-ring-bg" cx="50" cy="50" r="42"></circle>
+                        <circle class="ff-rest-ring-fg" id="ff-rest-arc" cx="50" cy="50" r="42"></circle>
+                    </svg>
+                    <div class="ff-rest-ring-center">
+                        <div class="lbl">SECONDS</div>
+                        <div class="num" id="ff-rest-num">90</div>
+                    </div>
+                </div>
+                <button class="btn btn-outline w-100" onclick="skipRestInSheet()">Skip Rest → Next Set</button>
+            </div>
         </div>
-        <div class="ff-field">
-          <div class="flbl">Rest Next</div>
-          <div class="fval" id="ff-rest-preview">90s</div>
-        </div>
-      </div>
-      <div id="ff-plate-suggestion" style="display:none;background:#1e2e22;border:1px solid #2a3d2f;border-radius:10px;padding:8px 12px;margin-bottom:10px;color:#8fd99f;font-size:12px"></div>
-
-      <div id="ff-drop-list" style="display:none;margin-bottom:10px"></div>
-      <button type="button" id="ff-add-drop-btn" onclick="addDropPoint()" style="display:none;width:100%;padding:10px;margin-bottom:10px;border-radius:12px;background:none;border:1px dashed var(--accent);color:var(--accent);font-size:13px;font-weight:600;cursor:pointer">+ Add Drop Point →</button>
-
-      <div class="ff-rpewrap">
-        <div class="ff-rpe-head"><span>Effort · RPE</span><b id="ff-rpe-val">7</b></div>
-        <input type="range" min="1" max="10" value="7" id="ff-rpe-slider" oninput="document.getElementById('ff-rpe-val').textContent=this.value">
-      </div>
-
-      <div style="display:flex; gap:8px;">
-        <button class="btn btn-outline" onclick="skipCurrentSet()">Skip Set</button>
-        <button class="btn btn-solid" style="flex:1" id="ff-log-btn" onclick="logCurrentSet()">✓ Log Set</button>
-      </div>
     </div>
-
-    <div id="ff-sheet-rest" style="display:none">
-      <div class="ff-rest-view">
-        <div class="eyebrow">RESTING</div>
-        <div class="n" id="ff-rest-exname" style="margin-bottom:4px;">Exercise</div>
-        <div class="ff-rest-ring">
-          <svg viewBox="0 0 100 100">
-            <circle class="ff-rest-ring-bg" cx="50" cy="50" r="42"></circle>
-            <circle class="ff-rest-ring-fg" id="ff-rest-arc" cx="50" cy="50" r="42"></circle>
-          </svg>
-          <div class="ff-rest-ring-center">
-            <div class="lbl">SECONDS</div>
-            <div class="num" id="ff-rest-num">90</div>
-          </div>
-        </div>
-        <button class="btn btn-outline w-100" onclick="skipRestInSheet()">Skip Rest → Next Set</button>
-      </div>
-    </div>
-  </div>
 </div>
 
 <div class="active-finish-bar">
-  <div class="active-finish-inner">
-    <textarea id="session-notes" rows="1" placeholder="Session notes…"></textarea>
-    <button class="btn btn-solid finish-btn" id="finish-btn" onclick="finishSession()">✓ Finish</button>
-  </div>
+    <div class="active-finish-inner">
+        <textarea id="session-notes" rows="1" placeholder="Session notes…"></textarea>
+        <button class="btn btn-solid finish-btn" id="finish-btn" onclick="finishSession()">✓ Finish</button>
+    </div>
 </div>
 
 @section Scripts {
-<script>
-var SESSION_ID = @Model.SessionId;
-var DAY_ID     = @Model.DayId;
-var EXERCISES  = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-    Model.Exercises.Select(ex => new {
-      pdeId = ex.PdeId, exerciseId = ex.ExerciseId, name = ex.ExerciseName,
-      sets = ex.TargetSets, targetReps = ex.TargetReps, restSeconds = ex.RestSeconds,
-      trackDuration = ex.TrackDuration, trackWeight = ex.TrackWeight,
-      targetWeight = ex.TargetWeight, notes = ex.Notes, equipmentType = ex.EquipmentType,
-      lastReps = ex.LastReps, lastWeightKg = ex.LastWeightKg,
-      lastDate = ex.LastDate.HasValue ? ex.LastDate.Value.ToString("MMM d") : null
-    }),
-    new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }));
+    <script>
+        var SESSION_ID = @Model.SessionId;
+        var DAY_ID     = @Model.DayId;
+        var EXERCISES  = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                    Model.Exercises.Select(ex => new
+                    {
+                          pdeId = ex.PdeId,
+                        exerciseId = ex.ExerciseId,
+                        name = ex.ExerciseName,
+                          sets = ex.TargetSets,
+                        targetReps = ex.TargetReps,
+                        restSeconds = ex.RestSeconds,
+                          trackDuration = ex.TrackDuration,
+                        trackWeight = ex.TrackWeight,
+                          targetWeight = ex.TargetWeight,
+                        notes = ex.Notes,
+                        equipmentType = ex.EquipmentType,
+                          lastReps = ex.LastReps,
+                        lastWeightKg = ex.LastWeightKg,
+                          lastDate = ex.LastDate.HasValue ? ex.LastDate.Value.ToString("MMM d") : null
+                    }),
+                    new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }));
 
-var exMap = {};
-EXERCISES.forEach(function(e){ exMap[e.pdeId] = e; e.doneSets = 0; e.exerciseId2 = e.exerciseId; });
+        var exMap = {};
+        EXERCISES.forEach(function(e){ exMap[e.pdeId] = e; e.doneSets = 0; e.exerciseId2 = e.exerciseId; e.warmupDone = false; });
 
-var loggedSets = [];
-var doneCount  = 0;
-var totalSets  = EXERCISES.reduce(function(a,e){ return a+e.sets; }, 0);
-var startTime  = Date.now();
-var restTimers = {};
-var currentPde = null, currentSet = null, currentRepVal = 0, currentSetType = 'Working', pendingDrops = [];
-var PLATE_MATH_ENABLED = @(((bool?)ViewData["PlateMathEnabled"] ?? true) ? "true" : "false");
-var PLATE_MATH_UNIT = '@(ViewData["PlateMathUnit"] ?? "kg")';
-var BAR_WEIGHT = PLATE_MATH_UNIT === 'lb' ? 45 : 20;
-var PLATES = PLATE_MATH_UNIT === 'lb' ? [45,35,25,10,5,2.5] : [25,20,15,10,5,2.5,1.25];
+        var loggedSets = [];
+        var doneCount  = 0;
+        var totalSets  = EXERCISES.reduce(function(a,e){ return a+e.sets; }, 0);
+        var startTime  = Date.now();
+        var restTimers = {};
+        var currentPde = null, currentSet = null, currentRepVal = 0, currentSetType = 'Working', pendingDrops = [];
+        var PLATE_MATH_ENABLED = @(((bool?)ViewData["PlateMathEnabled"] ?? true) ? "true" : "false");
+        var PLATE_MATH_UNIT = '@(ViewData["PlateMathUnit"] ?? "kg")';
+        var BAR_WEIGHT = PLATE_MATH_UNIT === 'lb' ? 45 : 20;
+        var PLATES = PLATE_MATH_UNIT === 'lb' ? [45,35,25,10,5,2.5] : [25,20,15,10,5,2.5,1.25];
 
-// ── Crash-safe draft (recovers logged sets if the page reloads mid-session) ──
-function saveDraft(){
-  try{
-    localStorage.setItem('ff-draft-' + SESSION_ID, JSON.stringify({
-      loggedSets: loggedSets, doneCount: doneCount,
-      notes: document.getElementById('session-notes').value
-    }));
-  }catch(e){}
-}
-function clearDraft(){ try{ localStorage.removeItem('ff-draft-' + SESSION_ID); }catch(e){} }
-function restoreDraft(){
-  var raw;
-  try{ raw = localStorage.getItem('ff-draft-' + SESSION_ID); }catch(e){ return; }
-  if(!raw) return;
-  try{
-    var draft = JSON.parse(raw);
-    if(!draft.loggedSets || !draft.loggedSets.length) return;
-    loggedSets = draft.loggedSets;
-    doneCount  = draft.doneCount || loggedSets.length;
-    if(draft.notes) document.getElementById('session-notes').value = draft.notes;
-    loggedSets.forEach(function(s){
-      var ex = exMap[s.pdeId];
-      if(!ex) return;
-      ex.doneSets = (ex.doneSets || 0) + 1;
-      var dot = document.getElementById('dot-' + s.pdeId + '-' + s.setNumber);
-      if(dot) dot.classList.add(s.skipped ? 'skip' : 'on');
-    });
-    Object.keys(exMap).forEach(function(pdeId){
-      var ex = exMap[pdeId];
-      if(ex.doneSets >= ex.sets){
-        var row = document.getElementById('ex-' + pdeId);
-        if(row) row.classList.add('complete');
-        var chev = document.getElementById('chev-' + pdeId);
-        if(chev) chev.textContent = '✓';
-      }
-    });
-    updateProgress();
-    showStackToast('↩️ Recovered ' + loggedSets.length + ' set' + (loggedSets.length===1?'':'s') + ' from before', 'success', 3200);
-  }catch(e){}
-}
-restoreDraft();
+        // ── Crash-safe draft (recovers logged sets if the page reloads mid-session) ──
+        function saveDraft(){
+          try{
+            localStorage.setItem('ff-draft-' + SESSION_ID, JSON.stringify({
+              loggedSets: loggedSets, doneCount: doneCount,
+              notes: document.getElementById('session-notes').value
+            }));
+          }catch(e){}
+        }
+        function clearDraft(){ try{ localStorage.removeItem('ff-draft-' + SESSION_ID); }catch(e){} }
+        function restoreDraft(){
+          var raw;
+          try{ raw = localStorage.getItem('ff-draft-' + SESSION_ID); }catch(e){ return; }
+          if(!raw) return;
+          try{
+            var draft = JSON.parse(raw);
+            if(!draft.loggedSets || !draft.loggedSets.length) return;
+            loggedSets = draft.loggedSets;
+            doneCount  = draft.doneCount || loggedSets.length;
+            if(draft.notes) document.getElementById('session-notes').value = draft.notes;
+            loggedSets.forEach(function(s){
+              var ex = exMap[s.pdeId];
+              if(!ex) return;
+              if(s.setType === 'Warmup'){
+                ex.warmupDone = true;
+                var wdot = document.getElementById('warmupdot-' + s.pdeId);
+                if(wdot) wdot.classList.add('on');
+                return; // warmup sets don't consume a scheduled slot
+              }
+              ex.doneSets = (ex.doneSets || 0) + 1;
+              var dot = document.getElementById('dot-' + s.pdeId + '-' + s.setNumber);
+              if(dot) dot.classList.add(s.skipped ? 'skip' : 'on');
+            });
+            Object.keys(exMap).forEach(function(pdeId){
+              var ex = exMap[pdeId];
+              if(ex.doneSets >= ex.sets){
+                var row = document.getElementById('ex-' + pdeId);
+                if(row) row.classList.add('complete');
+                var chev = document.getElementById('chev-' + pdeId);
+                if(chev) chev.textContent = '✓';
+              }
+            });
+            updateProgress();
+            showStackToast('↩️ Recovered ' + loggedSets.length + ' set' + (loggedSets.length===1?'':'s') + ' from before', 'success', 3200);
+          }catch(e){}
+        }
+        restoreDraft();
 
-// ── Elapsed timer ────────────────────────────────────────────
-setInterval(function(){
-  var sec = Math.floor((Date.now() - startTime) / 1000);
-  var m = Math.floor(sec/60).toString().padStart(2,'0');
-  var s = (sec % 60).toString().padStart(2,'0');
-  document.getElementById('elapsed').textContent = m + ':' + s;
-}, 1000);
+        // ── Elapsed timer ────────────────────────────────────────────
+        setInterval(function(){
+          var sec = Math.floor((Date.now() - startTime) / 1000);
+          var m = Math.floor(sec/60).toString().padStart(2,'0');
+          var s = (sec % 60).toString().padStart(2,'0');
+          document.getElementById('elapsed').textContent = m + ':' + s;
+        }, 1000);
 
-function updateProgress(){
-  document.getElementById('sets-done-pill').textContent = doneCount + '/' + totalSets;
-  document.getElementById('session-cap').textContent = doneCount + ' of ' + totalSets + ' sets logged';
-  var pct = totalSets > 0 ? Math.round(doneCount / totalSets * 100) : 0;
-  document.getElementById('session-fill').style.width = pct + '%';
-  document.getElementById('session-pct').textContent = pct + '%';
-}
+        function updateProgress(){
+          document.getElementById('sets-done-pill').textContent = doneCount + '/' + totalSets;
+          document.getElementById('session-cap').textContent = doneCount + ' of ' + totalSets + ' sets logged';
+          var pct = totalSets > 0 ? Math.round(doneCount / totalSets * 100) : 0;
+          document.getElementById('session-fill').style.width = pct + '%';
+          document.getElementById('session-pct').textContent = pct + '%';
+        }
 
-// ── Sheet: open for next pending set of an exercise ───────────
-function openSetSheet(pdeId){
-  var ex = exMap[pdeId];
-  if(!ex) return;
-  if(ex.doneSets >= ex.sets){ return; } // exercise already complete
-  currentPde = pdeId;
-  currentSet = ex.doneSets + 1;
-  currentRepVal = ex.targetReps;
+        // ── Sheet: open for next pending set of an exercise ───────────
+        function openSetSheet(pdeId){
+          var ex = exMap[pdeId];
+          if(!ex) return;
+          if(ex.doneSets >= ex.sets){ return; } // exercise already complete
+          currentPde = pdeId;
+          currentSet = ex.doneSets + 1;
+          currentRepVal = ex.targetReps;
 
-  document.getElementById('ff-sheet-log').style.display = '';
-  document.getElementById('ff-sheet-rest').style.display = 'none';
-  document.getElementById('ff-sheet-name').textContent = ex.name;
-  document.getElementById('ff-sheet-target').textContent = 'TARGET · ' + ex.targetReps + (ex.trackDuration ? ' SEC' : ' REPS');
-  document.getElementById('ff-sheet-setno').textContent = 'SET ' + currentSet + '/' + ex.sets;
-  document.getElementById('ff-rep-count').textContent = currentRepVal;
-  document.getElementById('ff-rep-cap').textContent = ex.trackDuration ? 'seconds held' : 'reps completed';
-  document.getElementById('ff-weight-row').style.display = ex.trackDuration ? 'none' : 'flex';
-  document.getElementById('ff-weight-input').value = ex.targetWeight || '';
-  document.getElementById('ff-weight-input').placeholder = ex.targetWeight ? '' : 'Bodyweight';
-  document.getElementById('ff-warmup-btn').style.display = ex.trackWeight ? 'block' : 'none';
-  document.getElementById('ff-rest-preview').textContent = ex.restSeconds + 's';
-  document.getElementById('ff-rpe-slider').value = 7;
-  document.getElementById('ff-rpe-val').textContent = 7;
+          document.getElementById('ff-sheet-log').style.display = '';
+          document.getElementById('ff-sheet-rest').style.display = 'none';
+          document.getElementById('ff-sheet-name').textContent = ex.name;
+          document.getElementById('ff-sheet-target').textContent = 'TARGET · ' + ex.targetReps + (ex.trackDuration ? ' SEC' : ' REPS');
+          document.getElementById('ff-sheet-setno').textContent = 'SET ' + currentSet + '/' + ex.sets;
+          document.getElementById('ff-rep-count').textContent = currentRepVal;
+          document.getElementById('ff-rep-cap').textContent = ex.trackDuration ? 'seconds held' : 'reps completed';
+          document.getElementById('ff-weight-row').style.display = ex.trackDuration ? 'none' : 'flex';
+          document.getElementById('ff-weight-input').value = ex.targetWeight || '';
+          document.getElementById('ff-weight-input').placeholder = ex.targetWeight ? '' : 'Bodyweight';
+          document.getElementById('ff-warmup-btn').style.display = (ex.trackWeight && !ex.warmupDone) ? 'block' : 'none';
+          document.getElementById('ff-rest-preview').textContent = ex.restSeconds + 's';
+          document.getElementById('ff-rpe-slider').value = 7;
+          document.getElementById('ff-rpe-val').textContent = 7;
 
-  currentSetType = 'Working';
-  document.querySelectorAll('.ff-settype-pill').forEach(function(p){
-    p.classList.toggle('active', p.dataset.type === 'Working');
-  });
-  pendingDrops = [];
-  renderDropList();
-  document.getElementById('ff-add-drop-btn').style.display = 'none';
-  document.getElementById('ff-log-btn').textContent = '✓ Log Set';
-  resetWarmupBtnStyle();
-  updatePlateMath();
+          currentSetType = 'Working';
+          document.querySelectorAll('.ff-settype-pill').forEach(function(p){
+            p.classList.toggle('active', p.dataset.type === 'Working');
+          });
+          pendingDrops = [];
+          renderDropList();
+          document.getElementById('ff-add-drop-btn').style.display = 'none';
+          document.getElementById('ff-log-btn').textContent = '✓ Log Set';
+          resetWarmupBtnStyle();
+          updatePlateMath();
 
-  var lastEl = document.getElementById('ff-last-time');
-  if(ex.lastReps){
-    var parts = ex.trackDuration ? (ex.lastReps + 's') : (ex.lastReps + ' reps');
-    if(ex.lastWeightKg) parts += ' @@ ' + ex.lastWeightKg + 'kg';
-    lastEl.innerHTML = '⏱ Last time: <b>' + parts + '</b>' + (ex.lastDate ? ' · ' + ex.lastDate : '');
-    lastEl.style.display = 'inline-flex';
-  } else {
-    lastEl.style.display = 'none';
-  }
+          var lastEl = document.getElementById('ff-last-time');
+          if(ex.lastReps){
+            var parts;
+            if(ex.trackDuration){ parts = ex.lastReps + 's'; }
+            else if(ex.lastWeightKg){ parts = ex.lastWeightKg + 'kg for ' + ex.lastReps + ' reps'; }
+            else { parts = ex.lastReps + ' reps'; }
+            lastEl.innerHTML = '⏱ Last time: <b>' + parts + '</b>' + (ex.lastDate ? ' · ' + ex.lastDate : '');
+            lastEl.style.display = 'inline-flex';
+          } else {
+            lastEl.style.display = 'none';
+          }
 
-  document.getElementById('ff-sheet-backdrop').classList.add('show');
-}
-function closeSetSheet(){
-  document.getElementById('ff-sheet-backdrop').classList.remove('show');
-}
+          document.getElementById('ff-sheet-backdrop').classList.add('show');
+        }
+        function closeSetSheet(){
+          document.getElementById('ff-sheet-backdrop').classList.remove('show');
+        }
 
-function pickSetType(type, el){
-  currentSetType = type;
-  document.querySelectorAll('.ff-settype-pill').forEach(function(p){ p.classList.remove('active'); });
-  el.classList.add('active');
-  resetWarmupBtnStyle();
-  if(type !== 'Drop'){ pendingDrops = []; renderDropList(); }
-  document.getElementById('ff-add-drop-btn').style.display = (type === 'Drop') ? 'block' : 'none';
-  document.getElementById('ff-log-btn').textContent = (type === 'Drop') ? '✓ Finish Drop Set' : '✓ Log Set';
-}
+        function pickSetType(type, el){
+          currentSetType = type;
+          document.querySelectorAll('.ff-settype-pill').forEach(function(p){ p.classList.remove('active'); });
+          el.classList.add('active');
+          resetWarmupBtnStyle();
+          if(type !== 'Drop'){ pendingDrops = []; renderDropList(); }
+          document.getElementById('ff-add-drop-btn').style.display = (type === 'Drop') ? 'block' : 'none';
+          document.getElementById('ff-log-btn').textContent = (type === 'Drop') ? '✓ Finish Drop Set' : '✓ Log Set';
+        }
 
-function renderDropList(){
-  var box = document.getElementById('ff-drop-list');
-  if(pendingDrops.length === 0){ box.style.display = 'none'; box.innerHTML = ''; return; }
-  box.style.display = 'block';
-  box.innerHTML = pendingDrops.map(function(d, i){
-    return '<div style="display:flex;justify-content:space-between;padding:6px 10px;background:var(--bg-soft);border-radius:8px;margin-bottom:4px;font-size:12.5px">' +
-      '<span>Drop ' + (i+1) + '</span><span>' + d.reps + ' reps' + (d.weightKg ? ' @@ ' + d.weightKg + 'kg' : '') + '</span></div>';
-  }).join('');
-}
+        function renderDropList(){
+          var box = document.getElementById('ff-drop-list');
+          if(pendingDrops.length === 0){ box.style.display = 'none'; box.innerHTML = ''; return; }
+          box.style.display = 'block';
+          box.innerHTML = pendingDrops.map(function(d, i){
+            var val = d.weightKg ? (d.weightKg + 'kg for ' + d.reps + ' reps') : (d.reps + ' reps');
+            return '<div style="display:flex;justify-content:space-between;padding:6px 10px;background:var(--bg-soft);border-radius:8px;margin-bottom:4px;font-size:12.5px">' +
+              '<span>Drop ' + (i+1) + '</span><span>' + val + '</span></div>';
+          }).join('');
+        }
 
-// Stashes the currently-entered reps/weight as one drop point, then suggests
-// ~20% lighter for the next drop (editable — this is a starting point, not
-// a rule). Rest timer intentionally doesn't start here — real drop sets
-// don't rest between drops, only after the whole sequence is finished.
-function addDropPoint(){
-  var weightInput = document.getElementById('ff-weight-input');
-  var weight = parseFloat(weightInput.value) || null;
-  if(!currentRepVal || currentRepVal < 1){ showToast('Enter reps for this drop first', 'danger'); return; }
+        // Stashes the currently-entered reps/weight as one drop point, then suggests
+        // ~20% lighter for the next drop (editable — this is a starting point, not
+        // a rule). Rest timer intentionally doesn't start here — real drop sets
+        // don't rest between drops, only after the whole sequence is finished.
+        function addDropPoint(){
+          var weightInput = document.getElementById('ff-weight-input');
+          var weight = parseFloat(weightInput.value) || null;
+          if(!currentRepVal || currentRepVal < 1){ showToast('Enter reps for this drop first', 'danger'); return; }
 
-  pendingDrops.push({ reps: currentRepVal, weightKg: weight });
-  renderDropList();
+          pendingDrops.push({ reps: currentRepVal, weightKg: weight });
+          renderDropList();
 
-  if(weight){
-    var suggested = Math.round((weight * 0.8) / 0.5) * 0.5;
-    weightInput.value = suggested;
-    updatePlateMath();
-  }
-  currentRepVal = 0;
-  document.getElementById('ff-rep-count').textContent = 0;
-}
+          if(weight){
+            var suggested = Math.round((weight * 0.8) / 0.5) * 0.5;
+            weightInput.value = suggested;
+            updatePlateMath();
+          }
+          currentRepVal = 0;
+          document.getElementById('ff-rep-count').textContent = 0;
+        }
 
-function resetWarmupBtnStyle(){
-  var btn = document.getElementById('ff-warmup-btn');
-  btn.style.background = 'none'; btn.style.borderColor = 'var(--line)'; btn.style.color = 'var(--muted)';
-  btn.textContent = '🔥 Do a warm-up set';
-}
+        function resetWarmupBtnStyle(){
+          var btn = document.getElementById('ff-warmup-btn');
+          btn.style.background = 'none'; btn.style.borderColor = 'var(--line)'; btn.style.color = 'var(--muted)';
+          btn.textContent = '🔥 Do a warm-up set';
+        }
 
-// Auto-fills weight (60% of target) and reps (~125% of target) as a starting
-// point for a warm-up set — fully editable afterward via the normal steppers,
-// this is just a faster starting point than typing it all from scratch.
-function doWarmupFill(){
-  var ex = exMap[currentPde];
-  if(!ex) return;
-  var baseWeight = ex.targetWeight || ex.lastWeightKg || 0;
-  if(baseWeight > 0){
-    var warmupWeight = Math.round((baseWeight * 0.6) / 0.5) * 0.5;
-    document.getElementById('ff-weight-input').value = warmupWeight;
-    updatePlateMath();
-  }
-  var warmupReps = Math.max(1, Math.round(ex.targetReps * 1.25));
-  currentRepVal = warmupReps;
-  document.getElementById('ff-rep-count').textContent = warmupReps;
+        // Auto-fills weight (60% of target) and reps (~125% of target) as a starting
+        // point for a warm-up set — fully editable afterward via the normal steppers,
+        // this is just a faster starting point than typing it all from scratch.
+        function doWarmupFill(){
+          var ex = exMap[currentPde];
+          if(!ex) return;
+          var baseWeight = ex.targetWeight || ex.lastWeightKg || 0;
+          if(baseWeight > 0){
+            var warmupWeight = Math.round((baseWeight * 0.6) / 0.5) * 0.5;
+            document.getElementById('ff-weight-input').value = warmupWeight;
+            updatePlateMath();
+          }
+          var warmupReps = Math.max(1, Math.round(ex.targetReps * 1.25));
+          currentRepVal = warmupReps;
+          document.getElementById('ff-rep-count').textContent = warmupReps;
 
-  currentSetType = 'Warmup';
-  document.querySelectorAll('.ff-settype-pill').forEach(function(p){ p.classList.remove('active'); });
-  var btn = document.getElementById('ff-warmup-btn');
-  btn.style.background = 'var(--accent)'; btn.style.borderColor = 'var(--accent)'; btn.style.color = 'var(--accent-ink)';
-  btn.textContent = '✓ Warm-up set selected';
-}
+          currentSetType = 'Warmup';
+          document.querySelectorAll('.ff-settype-pill').forEach(function(p){ p.classList.remove('active'); });
+          var btn = document.getElementById('ff-warmup-btn');
+          btn.style.background = 'var(--accent)'; btn.style.borderColor = 'var(--accent)'; btn.style.color = 'var(--accent-ink)';
+          btn.textContent = '✓ Warm-up set selected';
+        }
 
-// Greedy plate breakdown for one side of the bar. Only applies to genuine
-// barbell exercises — cable/machine/dumbbell weight numbers aren't
-// comparable to a bar+plates setup, so this deliberately checks
-// ex.equipmentType rather than just "does this exercise track weight."
-function updatePlateMath(){
-  var box = document.getElementById('ff-plate-suggestion');
-  var ex = exMap[currentPde];
-  if(!PLATE_MATH_ENABLED || !ex || ex.equipmentType !== 'Barbell'){ box.style.display = 'none'; return; }
-  var kg = parseFloat(document.getElementById('ff-weight-input').value);
-  if(!kg){ box.style.display = 'none'; return; }
+        // Greedy plate breakdown for one side of the bar. Only applies to genuine
+        // barbell exercises — cable/machine/dumbbell weight numbers aren't
+        // comparable to a bar+plates setup, so this deliberately checks
+        // ex.equipmentType rather than just "does this exercise track weight."
+        function updatePlateMath(){
+          var box = document.getElementById('ff-plate-suggestion');
+          var ex = exMap[currentPde];
+          if(!PLATE_MATH_ENABLED || !ex || ex.equipmentType !== 'Barbell'){ box.style.display = 'none'; return; }
+          var kg = parseFloat(document.getElementById('ff-weight-input').value);
+          if(!kg){ box.style.display = 'none'; return; }
 
-  var totalDisplay = PLATE_MATH_UNIT === 'lb' ? kg * 2.20462 : kg;
-  var perSide = (totalDisplay - BAR_WEIGHT) / 2;
-  if(perSide <= 0){ box.textContent = 'Bar only (' + BAR_WEIGHT + PLATE_MATH_UNIT + ')'; box.style.display = 'block'; return; }
+          var totalDisplay = PLATE_MATH_UNIT === 'lb' ? kg * 2.20462 : kg;
+          var perSide = (totalDisplay - BAR_WEIGHT) / 2;
+          if(perSide <= 0){ box.textContent = 'Bar only (' + BAR_WEIGHT + PLATE_MATH_UNIT + ')'; box.style.display = 'block'; return; }
 
-  var remaining = perSide, breakdown = [];
-  PLATES.forEach(function(p){
-    var count = Math.floor((remaining + 0.001) / p);
-    if(count > 0){ breakdown.push(count > 1 ? count + '×' + p : '' + p); remaining -= count * p; }
-  });
-  if(breakdown.length === 0){ box.style.display = 'none'; return; }
-  box.textContent = 'Load ' + breakdown.join(' + ') + ' ' + PLATE_MATH_UNIT + ' per side (bar = ' + BAR_WEIGHT + PLATE_MATH_UNIT + ')'
-    + (remaining > 0.2 ? ' — closest match, not exact' : '');
-  box.style.display = 'block';
-}
-function stepRep(d){
-  currentRepVal = Math.max(0, currentRepVal + d);
-  document.getElementById('ff-rep-count').textContent = currentRepVal;
-}
+          var remaining = perSide, breakdown = [];
+          PLATES.forEach(function(p){
+            var count = Math.floor((remaining + 0.001) / p);
+            if(count > 0){ breakdown.push(count > 1 ? count + '×' + p : '' + p); remaining -= count * p; }
+          });
+          if(breakdown.length === 0){ box.style.display = 'none'; return; }
+          box.textContent = 'Load ' + breakdown.join(' + ') + ' ' + PLATE_MATH_UNIT + ' per side (bar = ' + BAR_WEIGHT + PLATE_MATH_UNIT + ')'
+            + (remaining > 0.2 ? ' — closest match, not exact' : '');
+          box.style.display = 'block';
+        }
+        function stepRep(d){
+          currentRepVal = Math.max(0, currentRepVal + d);
+          document.getElementById('ff-rep-count').textContent = currentRepVal;
+        }
 
-function skipCurrentSet(){ commitCurrentSet(true); }
-function logCurrentSet(){ commitCurrentSet(false); }
+        function skipCurrentSet(){ commitCurrentSet(true); }
+        function logCurrentSet(){ commitCurrentSet(false); }
 
-function commitCurrentSet(skipped){
-  var pdeId = currentPde, setNum = currentSet;
-  var ex = exMap[pdeId];
-  var weight = ex.trackWeight ? (parseFloat(document.getElementById('ff-weight-input').value) || null) : null;
-  var rpe = skipped ? null : parseInt(document.getElementById('ff-rpe-slider').value);
-  var reps = skipped ? 0 : currentRepVal;
+        function commitCurrentSet(skipped){
+          var pdeId = currentPde, setNum = currentSet;
+          var ex = exMap[pdeId];
+          var weight = ex.trackWeight ? (parseFloat(document.getElementById('ff-weight-input').value) || null) : null;
+          var rpe = skipped ? null : parseInt(document.getElementById('ff-rpe-slider').value);
+          var reps = skipped ? 0 : currentRepVal;
 
-  var dot = document.getElementById('dot-' + pdeId + '-' + setNum);
-  if(dot) dot.classList.add(skipped ? 'skip' : 'on');
+          // Warmup is an additive extra, not one of the scheduled working sets — it
+          // gets its own dot, doesn't advance the set counter, and doesn't count
+          // toward doneSets/doneCount/totalSets. Limited to one per exercise.
+          if(currentSetType === 'Warmup'){
+            if(skipped){
+              // "Skip" while warmup is selected just cancels the warmup pick — nothing to log.
+              currentSetType = 'Working';
+              document.querySelectorAll('.ff-settype-pill').forEach(function(p){ p.classList.toggle('active', p.dataset.type === 'Working'); });
+              resetWarmupBtnStyle();
+              document.getElementById('ff-log-btn').textContent = '✓ Log Set';
+              return;
+            }
+            loggedSets.push({ pdeId: parseInt(pdeId), exerciseId: parseInt(ex.exerciseId), setNumber: 0,
+              targetReps: ex.targetReps, actualReps: reps, weightKg: weight, rpe: rpe, skipped: false,
+              setType: 'Warmup', dropIndex: 0 });
+            ex.warmupDone = true;
+            var wdot = document.getElementById('warmupdot-' + pdeId);
+            if(wdot) wdot.classList.add('on');
+            saveDraft();
+            showStackToast('🔥 Warm-up set logged', 'success', 1500);
+            openSetSheet(pdeId); // back to the same scheduled set — warmup button now hidden
+            return;
+          }
 
-  loggedSets = loggedSets.filter(function(s){ return !(s.pdeId == pdeId && s.setNumber == setNum); });
+          var dot = document.getElementById('dot-' + pdeId + '-' + setNum);
+          if(dot) dot.classList.add(skipped ? 'skip' : 'on');
 
-  if(currentSetType === 'Drop' && !skipped && pendingDrops.length > 0){
-    // Every stashed drop point becomes its own row (drop_index 0,1,2...),
-    // then the currently-entered fields become the final drop.
-    pendingDrops.forEach(function(d, i){
-      loggedSets.push({ pdeId: parseInt(pdeId), exerciseId: parseInt(ex.exerciseId), setNumber: setNum,
-        targetReps: ex.targetReps, actualReps: d.reps, weightKg: d.weightKg, rpe: rpe, skipped: false,
-        setType: 'Drop', dropIndex: i });
-    });
-    loggedSets.push({ pdeId: parseInt(pdeId), exerciseId: parseInt(ex.exerciseId), setNumber: setNum,
-      targetReps: ex.targetReps, actualReps: reps, weightKg: weight, rpe: rpe, skipped: false,
-      setType: 'Drop', dropIndex: pendingDrops.length });
-    pendingDrops = [];
-    renderDropList();
-  } else {
-    loggedSets.push({ pdeId: parseInt(pdeId), exerciseId: parseInt(ex.exerciseId), setNumber: setNum,
-      targetReps: ex.targetReps, actualReps: reps, weightKg: weight, rpe: rpe, skipped: skipped,
-      setType: currentSetType, dropIndex: 0 });
-  }
+          loggedSets = loggedSets.filter(function(s){ return !(s.pdeId == pdeId && s.setNumber == setNum); });
 
-  ex.doneSets++;
-  doneCount++;
-  updateProgress();
-  saveDraft();
+          if(currentSetType === 'Drop' && !skipped && pendingDrops.length > 0){
+            // Every stashed drop point becomes its own row (drop_index 0,1,2...),
+            // then the currently-entered fields become the final drop.
+            pendingDrops.forEach(function(d, i){
+              loggedSets.push({ pdeId: parseInt(pdeId), exerciseId: parseInt(ex.exerciseId), setNumber: setNum,
+                targetReps: ex.targetReps, actualReps: d.reps, weightKg: d.weightKg, rpe: rpe, skipped: false,
+                setType: 'Drop', dropIndex: i });
+            });
+            loggedSets.push({ pdeId: parseInt(pdeId), exerciseId: parseInt(ex.exerciseId), setNumber: setNum,
+              targetReps: ex.targetReps, actualReps: reps, weightKg: weight, rpe: rpe, skipped: false,
+              setType: 'Drop', dropIndex: pendingDrops.length });
+            pendingDrops = [];
+            renderDropList();
+          } else {
+            loggedSets.push({ pdeId: parseInt(pdeId), exerciseId: parseInt(ex.exerciseId), setNumber: setNum,
+              targetReps: ex.targetReps, actualReps: reps, weightKg: weight, rpe: rpe, skipped: skipped,
+              setType: currentSetType, dropIndex: 0 });
+          }
 
-  if(!skipped && typeof ffConfetti === 'function') ffConfetti(document.getElementById('ex-'+pdeId));
+          ex.doneSets++;
+          doneCount++;
+          updateProgress();
+          saveDraft();
 
-  var exerciseDone = ex.doneSets >= ex.sets;
-  if(exerciseDone){
-    document.getElementById('ex-'+pdeId).classList.add('complete');
-    document.getElementById('chev-'+pdeId).textContent = '✓';
-  }
+          if(!skipped && typeof ffConfetti === 'function') ffConfetti(document.getElementById('ex-'+pdeId));
 
-  if(doneCount === totalSets){
-    closeSetSheet();
-    setTimeout(function(){
-      document.querySelector('.active-finish-bar')?.scrollIntoView({ behavior:'smooth', block:'end' });
-      showStackToast('🎉 All sets done! Finish when ready.', 'success', 3000);
-    }, 300);
-    return;
-  }
+          var exerciseDone = ex.doneSets >= ex.sets;
+          if(exerciseDone){
+            document.getElementById('ex-'+pdeId).classList.add('complete');
+            document.getElementById('chev-'+pdeId).textContent = '✓';
+          }
 
-  if(!skipped && !exerciseDone){
-    startRest(pdeId, ex.restSeconds, ex.name);
-  } else if(exerciseDone){
-    closeSetSheet();
-  } else {
-    // skipped but not last set — advance sheet straight to next set
-    openSetSheet(pdeId);
-  }
-}
+          if(doneCount === totalSets){
+            closeSetSheet();
+            setTimeout(function(){
+              document.querySelector('.active-finish-bar')?.scrollIntoView({ behavior:'smooth', block:'end' });
+              showStackToast('🎉 All sets done! Finish when ready.', 'success', 3000);
+            }, 300);
+            return;
+          }
 
-// ── Rest timer (row bar + sheet ring, kept in sync) ───────────
-function startRest(pdeId, total, exName){
-  var row = document.getElementById('ex-'+pdeId);
-  var bar = document.getElementById('rest-'+pdeId);
-  var countEl = document.getElementById('rest-count-'+pdeId);
-  var fillEl  = document.getElementById('rest-fill-'+pdeId);
-  row.classList.add('resting');
-  bar.style.display = 'flex';
+          if(!skipped && !exerciseDone){
+            startRest(pdeId, ex.restSeconds, ex.name);
+          } else if(exerciseDone){
+            closeSetSheet();
+          } else {
+            // skipped but not last set — advance sheet straight to next set
+            openSetSheet(pdeId);
+          }
+        }
 
-  // switch sheet to rest view
-  document.getElementById('ff-sheet-log').style.display = 'none';
-  document.getElementById('ff-sheet-rest').style.display = '';
-  document.getElementById('ff-rest-exname').textContent = exName;
-  var RADIUS = 42, CIRC = 2*Math.PI*RADIUS;
-  var arc = document.getElementById('ff-rest-arc');
-  arc.style.strokeDasharray = CIRC;
-  arc.style.strokeDashoffset = 0;
-  document.getElementById('ff-sheet-backdrop').classList.add('show');
+        // ── Rest timer (row bar + sheet ring, kept in sync) ───────────
+        function startRest(pdeId, total, exName){
+          var row = document.getElementById('ex-'+pdeId);
+          var bar = document.getElementById('rest-'+pdeId);
+          var countEl = document.getElementById('rest-count-'+pdeId);
+          var fillEl  = document.getElementById('rest-fill-'+pdeId);
+          row.classList.add('resting');
+          bar.style.display = 'flex';
 
-  var remaining = total;
-  if(restTimers[pdeId]) clearInterval(restTimers[pdeId]);
-  restTimers[pdeId] = setInterval(function(){
-    remaining--;
-    if(countEl) countEl.textContent = Math.max(remaining,0);
-    if(fillEl)  fillEl.style.width = Math.max(remaining/total*100,0) + '%';
-    document.getElementById('ff-rest-num').textContent = Math.max(remaining,0);
-    arc.style.strokeDashoffset = CIRC * (1 - Math.max(remaining,0)/total);
-    if(remaining <= 3 && remaining > 0){
-      showStackToast('⏱ Rest ending in ' + remaining + 's…', '', 1200);
-      if(navigator.vibrate) navigator.vibrate(60);
-      ffBeep(440, 90);
-    }
-    if(remaining <= 0){ finishRest(pdeId, true); }
-  }, 1000);
-}
-function finishRest(pdeId, natural){
-  if(restTimers[pdeId]) clearInterval(restTimers[pdeId]);
-  var row = document.getElementById('ex-'+pdeId);
-  row.classList.remove('resting');
-  document.getElementById('rest-'+pdeId).style.display = 'none';
-  showStackToast('💥 Rest over — next set!', 'success', 1800);
-  if(natural){
-    if(navigator.vibrate) navigator.vibrate([120,60,120]);
-    ffBeep(660, 180);
-  }
-  if(currentPde === pdeId){ openSetSheet(pdeId); }
-  else { closeSetSheet(); }
-}
-function skipRest(pdeId){ finishRest(pdeId, false); }
-function skipRestInSheet(){ if(currentPde != null) finishRest(currentPde, false); }
+          // switch sheet to rest view
+          document.getElementById('ff-sheet-log').style.display = 'none';
+          document.getElementById('ff-sheet-rest').style.display = '';
+          document.getElementById('ff-rest-exname').textContent = exName;
+          var RADIUS = 42, CIRC = 2*Math.PI*RADIUS;
+          var arc = document.getElementById('ff-rest-arc');
+          arc.style.strokeDasharray = CIRC;
+          arc.style.strokeDashoffset = 0;
+          document.getElementById('ff-sheet-backdrop').classList.add('show');
 
-// ── Swap flagged exercise ─────────────────────────────────────
-function swapExercise(pdeId, altId, altName){
-  if(!confirm('Replace with ' + altName + '?')) return;
-  var ex = exMap[pdeId];
-  ex.exerciseId = altId; ex.name = altName;
-  var row = document.getElementById('ex-'+pdeId);
-  row.querySelector('.n').childNodes[0].textContent = altName + ' ';
-  var note = row.querySelector('.exrow-flagnote');
-  if(note) note.remove();
-  showStackToast('Swapped to ' + altName, 'success');
-}
+          var remaining = total;
+          if(restTimers[pdeId]) clearInterval(restTimers[pdeId]);
+          restTimers[pdeId] = setInterval(function(){
+            remaining--;
+            if(countEl) countEl.textContent = Math.max(remaining,0);
+            if(fillEl)  fillEl.style.width = Math.max(remaining/total*100,0) + '%';
+            document.getElementById('ff-rest-num').textContent = Math.max(remaining,0);
+            arc.style.strokeDashoffset = CIRC * (1 - Math.max(remaining,0)/total);
+            if(remaining <= 3 && remaining > 0){
+              showStackToast('⏱ Rest ending in ' + remaining + 's…', '', 1200);
+              if(navigator.vibrate) navigator.vibrate(60);
+              ffBeep(440, 90);
+            }
+            if(remaining <= 0){ finishRest(pdeId, true); }
+          }, 1000);
+        }
+        function finishRest(pdeId, natural){
+          if(restTimers[pdeId]) clearInterval(restTimers[pdeId]);
+          var row = document.getElementById('ex-'+pdeId);
+          row.classList.remove('resting');
+          document.getElementById('rest-'+pdeId).style.display = 'none';
+          showStackToast('💥 Rest over — next set!', 'success', 1800);
+          if(natural){
+            if(navigator.vibrate) navigator.vibrate([120,60,120]);
+            ffBeep(660, 180);
+          }
+          if(currentPde === pdeId){ openSetSheet(pdeId); }
+          else { closeSetSheet(); }
+        }
+        function skipRest(pdeId){ finishRest(pdeId, false); }
+        function skipRestInSheet(){ if(currentPde != null) finishRest(currentPde, false); }
 
-// ── Finish session ────────────────────────────────────────────
-function finishSession(){
-  if(loggedSets.length === 0 && !confirm('No sets logged. Finish anyway?')) return;
-  var btn = document.getElementById('finish-btn');
-  btn.disabled = true; btn.textContent = 'Saving…';
-  var notes = document.getElementById('session-notes').value;
-  fetch('/Dashboard/FinishSession', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessionId: SESSION_ID, dayId: DAY_ID, sets: loggedSets, notes: notes })
-  }).then(function(r){ return r.json(); }).then(function(d){
-    if(d.success){
-      clearDraft();
-      if(d.newAchievements && d.newAchievements.length > 0){
-        ffConfetti();
-        showAchievements(d.newAchievements);
-        setTimeout(function(){ window.location = '/Dashboard/Index'; }, d.newAchievements.length * 3500 + 500);
-      } else if(d.newPRs && d.newPRs.length > 0){
-        ffConfetti();
-        showStackToast('🏆 PR: ' + d.newPRs.join(', '), 'success', 3000);
-        setTimeout(function(){ window.location = '/Dashboard/Index'; }, 1800);
-      } else {
-        showStackToast('Session saved! 💪', 'success', 2000);
-        setTimeout(function(){ window.location = '/Dashboard/Index'; }, 1200);
-      }
-    } else {
-      btn.disabled = false; btn.textContent = '✓ Finish';
-      showStackToast('Error saving session — try again.', 'danger');
-    }
-  }).catch(function(){
-    btn.disabled = false; btn.textContent = '✓ Finish';
-    showStackToast('Network error', 'danger');
-  });
-}
-</script>
+        // ── Swap flagged exercise ─────────────────────────────────────
+        function swapExercise(pdeId, altId, altName){
+          if(!confirm('Replace with ' + altName + '?')) return;
+          var ex = exMap[pdeId];
+          ex.exerciseId = altId; ex.name = altName;
+          var row = document.getElementById('ex-'+pdeId);
+          row.querySelector('.n').childNodes[0].textContent = altName + ' ';
+          var note = row.querySelector('.exrow-flagnote');
+          if(note) note.remove();
+          showStackToast('Swapped to ' + altName, 'success');
+        }
+
+        // ── Finish session ────────────────────────────────────────────
+        function finishSession(){
+          if(loggedSets.length === 0 && !confirm('No sets logged. Finish anyway?')) return;
+          var btn = document.getElementById('finish-btn');
+          btn.disabled = true; btn.textContent = 'Saving…';
+          var notes = document.getElementById('session-notes').value;
+          fetch('/Dashboard/FinishSession', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId: SESSION_ID, dayId: DAY_ID, sets: loggedSets, notes: notes })
+          }).then(function(r){ return r.json(); }).then(function(d){
+            if(d.success){
+              clearDraft();
+              if(d.newAchievements && d.newAchievements.length > 0){
+                ffConfetti();
+                showAchievements(d.newAchievements);
+                setTimeout(function(){ window.location = '/Dashboard/Index'; }, d.newAchievements.length * 3500 + 500);
+              } else if(d.newPRs && d.newPRs.length > 0){
+                ffConfetti();
+                showStackToast('🏆 PR: ' + d.newPRs.join(', '), 'success', 3000);
+                setTimeout(function(){ window.location = '/Dashboard/Index'; }, 1800);
+              } else {
+                showStackToast('Session saved! 💪', 'success', 2000);
+                setTimeout(function(){ window.location = '/Dashboard/Index'; }, 1200);
+              }
+            } else {
+              btn.disabled = false; btn.textContent = '✓ Finish';
+              showStackToast('Error saving session — try again.', 'danger');
+            }
+          }).catch(function(){
+            btn.disabled = false; btn.textContent = '✓ Finish';
+            showStackToast('Network error', 'danger');
+          });
+        }
+    </script>
 }

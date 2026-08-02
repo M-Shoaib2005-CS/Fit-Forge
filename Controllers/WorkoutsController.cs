@@ -35,14 +35,15 @@ namespace FitForge.Controllers
             if (Uid == null) return Json(new { success = false });
             var points = wDL.GetExerciseSessionHistory(Uid.Value, exerciseId);
             bool trackWeight = points.Any(p => p.maxWeight.HasValue);
-            return Json(new {
+            return Json(new
+            {
                 success = true,
                 exerciseName,
                 trackWeight,
                 points = points.Select(p => new {
-                    date   = p.date.ToString("yyyy-MM-dd"),
-                    label  = p.date.ToString("MMM d"),
-                    reps   = p.maxReps,
+                    date = p.date.ToString("yyyy-MM-dd"),
+                    label = p.date.ToString("MMM d"),
+                    reps = p.maxReps,
                     weight = p.maxWeight,
                     volume = Math.Round(p.volume, 1)
                 })
@@ -55,14 +56,14 @@ namespace FitForge.Controllers
             var dt = DB.Select(
                 @"SELECT ws.session_id, ws.started_at, pd.name AS day_name, p.name AS prog_name,
                     wset.exercise_id, e.name AS ex_name, wset.set_number, wset.actual_reps,
-                    wset.target_reps, wset.weight_kg, wset.was_skipped
+                    wset.target_reps, wset.weight_kg, wset.was_skipped, wset.set_type, wset.drop_index
                   FROM workout_sessions ws
                   JOIN program_days pd ON ws.day_id = pd.day_id
                   JOIN programs p ON pd.program_id = p.program_id
                   LEFT JOIN workout_sets wset ON ws.session_id = wset.session_id
                   LEFT JOIN exercises e ON wset.exercise_id = e.exercise_id
                   WHERE ws.session_id = @sid AND ws.user_id = @uid
-                  ORDER BY wset.exercise_id, wset.set_number",
+                  ORDER BY wset.exercise_id, wset.set_number, wset.drop_index",
                 DB.P("@sid", sessionId), DB.P("@uid", Uid.Value));
 
             if (dt.Rows.Count == 0) return Json(new { success = false });
@@ -70,9 +71,9 @@ namespace FitForge.Controllers
             var detail = new
             {
                 sessionDate = Convert.ToDateTime(first["started_at"]),
-                dayLabel    = first["day_name"].ToString(),
-                goalType    = first["prog_name"].ToString(),
-                exercises   = dt.Rows()
+                dayLabel = first["day_name"].ToString(),
+                goalType = first["prog_name"].ToString(),
+                exercises = dt.Rows()
                     .Where(r => r["exercise_id"] != System.DBNull.Value)
                     .GroupBy(r => Convert.ToInt32(r["exercise_id"]))
                     .Select(g =>
@@ -81,15 +82,17 @@ namespace FitForge.Controllers
                         int target = fr["target_reps"] != System.DBNull.Value ? Convert.ToInt32(fr["target_reps"]) : 0;
                         return new
                         {
-                            exerciseId   = Convert.ToInt32(fr["exercise_id"]),
+                            exerciseId = Convert.ToInt32(fr["exercise_id"]),
                             exerciseName = fr["ex_name"].ToString(),
                             expectedReps = target,
-                            loggedSets   = g.Select(r => new
+                            loggedSets = g.Select(r => new
                             {
-                                setNumber  = Convert.ToInt32(r["set_number"]),
+                                setNumber = Convert.ToInt32(r["set_number"]),
                                 actualReps = Convert.ToInt32(r["actual_reps"]),
-                                weightKg   = r["weight_kg"] != System.DBNull.Value ? (double?)Convert.ToDouble(r["weight_kg"]) : null,
-                                wasSkipped = r["was_skipped"] != System.DBNull.Value && Convert.ToInt32(r["was_skipped"]) == 1
+                                weightKg = r["weight_kg"] != System.DBNull.Value ? (double?)Convert.ToDouble(r["weight_kg"]) : null,
+                                wasSkipped = r["was_skipped"] != System.DBNull.Value && Convert.ToInt32(r["was_skipped"]) == 1,
+                                setType = r["set_type"] != System.DBNull.Value ? r["set_type"].ToString() : "Working",
+                                dropIndex = r["drop_index"] != System.DBNull.Value ? Convert.ToInt32(r["drop_index"]) : 0
                             }).ToList()
                         };
                     }).ToList()
@@ -101,16 +104,20 @@ namespace FitForge.Controllers
         {
             if (Uid == null) return Json(new { success = false });
             var calDL = HttpContext.RequestServices.GetRequiredService<CalendarDL>();
-            var days  = calDL.GetMonth(Uid.Value, year, month);
-            return Json(new { success = true, days = days.Select(d => new {
-                date        = d.Date.ToString("yyyy-MM-dd"),
-                hasWorkout  = d.HasWorkout,
-                isCompleted = d.IsCompleted,
-                isToday     = d.IsToday,
-                isFuture    = d.IsFuture,
-                sessionId   = d.SessionId,
-                setCount    = d.SetCount
-            })});
+            var days = calDL.GetMonth(Uid.Value, year, month);
+            return Json(new
+            {
+                success = true,
+                days = days.Select(d => new {
+                    date = d.Date.ToString("yyyy-MM-dd"),
+                    hasWorkout = d.HasWorkout,
+                    isCompleted = d.IsCompleted,
+                    isToday = d.IsToday,
+                    isFuture = d.IsFuture,
+                    sessionId = d.SessionId,
+                    setCount = d.SetCount
+                })
+            });
         }
     }
 }
