@@ -42,6 +42,7 @@ namespace FitForge.BL
             return(true,"");
         }
         public void UpdateTheme(int uid,string theme)=>dl.UpdateTheme(uid,theme);
+        public void UpdateAccent(int uid,string accent)=>dl.UpdateAccent(uid,accent);
         public void UpdateCoachName(int uid,string name)=>dl.UpdateCoachName(uid,name);
         public void UpdatePlateMathSettings(int uid, bool enabled, string unit)=>dl.UpdatePlateMathSettings(uid, enabled, unit);
         public (bool ok,string msg) UpdatePassword(int uid,string cur,string newPw,string confirm){

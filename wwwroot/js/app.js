@@ -38,7 +38,7 @@ var FF_ACCENTS = {
   pink:   { accent:'#ff3d7a', dim:'#ff3d7a33' },
   blue:   { accent:'#4ea6ff', dim:'#4ea6ff33' }
 };
-function applyAccent(key){
+function applyAccent(key, persist){
   var a = FF_ACCENTS[key] || FF_ACCENTS.orange;
   document.documentElement.style.setProperty('--accent', a.accent);
   document.documentElement.style.setProperty('--accent-dim', a.dim);
@@ -46,11 +46,20 @@ function applyAccent(key){
     s.classList.toggle('active', s.dataset.accent === key);
   });
   try{ localStorage.setItem('ff-accent', key); }catch(e){}
+  if(persist){
+    fetch('/Profile/SetAccent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accent:key})})
+      .then(function(){ if(typeof showToast==='function') showToast('Accent updated','success'); });
+  }
 }
 (function(){
-  var saved = 'orange';
-  try{ saved = localStorage.getItem('ff-accent') || 'orange'; }catch(e){}
-  applyAccent(saved);
+  // Server-rendered value (from the logged-in user's saved preference) wins when present,
+  // so accent stays in sync across devices instead of being purely localStorage-only.
+  var serverAccent = document.documentElement.getAttribute('data-accent');
+  var saved = serverAccent || 'orange';
+  if(!serverAccent){
+    try{ saved = localStorage.getItem('ff-accent') || 'orange'; }catch(e){}
+  }
+  applyAccent(saved, false);
 })();
 
 // ── CONFETTI BURST ───────────────────────────────────────────

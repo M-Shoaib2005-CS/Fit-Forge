@@ -1,6 +1,7 @@
 @using FitForge.Models
 @{
     string theme = ViewData["UserTheme"]?.ToString() ?? "dark";
+    string accent = ViewData["AccentColor"]?.ToString() ?? "";
     string page  = ViewData["Page"]?.ToString() ?? "";
     // Also drives theme-color below (the phone's actual status bar color) — previously
     // that was hardcoded to solid accent orange, which meant the status bar was orange
@@ -9,7 +10,7 @@
     string criticalBg = theme == "light" ? "#f3f0e8" : "#17181a";
 }
 <!DOCTYPE html>
-<html id="html-root" lang="en" data-theme="@theme">
+<html id="html-root" lang="en" data-theme="@theme" data-accent="@accent">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
@@ -37,11 +38,11 @@
         </a>
         <a asp-controller="Programs"  asp-action="Index"  class='nav-item @(page=="Programs"?"active":"")'   aria-label="Programs">
             <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
-            <span>Plans</span>
+            <span>Programs</span>
         </a>
         <a asp-controller="Workouts"  asp-action="Index"  class='nav-item @(page=="Workouts"?"active":"")'   aria-label="Workouts">
             <svg viewBox="0 0 24 24"><path d="M6 12h12M3 9l3 3-3 3M21 9l-3 3 3 3"/></svg>
-            <span>Log</span>
+            <span>Workouts</span>
         </a>
         <a asp-controller="Skills"    asp-action="Index"  class='nav-item @(page=="Skills"?"active":"")'     aria-label="Skills">
             <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>

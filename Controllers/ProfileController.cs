@@ -55,6 +55,11 @@ namespace FitForge.Controllers
             uBL.UpdateTheme(Uid.Value,req.Theme); return Json(new{success=true});
         }
         [HttpPost,IgnoreAntiforgeryToken]
+        public IActionResult SetAccent([FromBody]AccentReq req){
+            if(Uid==null)return Json(new{success=false});
+            uBL.UpdateAccent(Uid.Value,req.Accent); return Json(new{success=true});
+        }
+        [HttpPost,IgnoreAntiforgeryToken]
         public IActionResult SetCoachName([FromBody]CoachNameReq req){
             if(Uid==null)return Json(new{success=false});
             var clean = (req.Name ?? "").Trim();

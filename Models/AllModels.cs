@@ -12,6 +12,7 @@ namespace FitForge.Models
         public string Username { get; set; } = "";
         public string Email { get; set; } = "";
         public string Theme { get; set; } = "dark";
+        public string AccentColor { get; set; } = "orange";
         public string FitnessLevel { get; set; } = "Beginner";
         public int Age { get; set; }
         public string Gender { get; set; } = "";
@@ -567,6 +568,7 @@ namespace FitForge.Models
 
     // ── AJAX Request Models ───────────────────────────────────
     public class ThemeReq { public string Theme { get; set; } = "dark"; }
+    public class AccentReq { public string Accent { get; set; } = "orange"; }
     public class CoachNameReq { public string Name { get; set; } = "Coach"; }
     public class PlateMathReq { public bool Enabled { get; set; } = true; public string Unit { get; set; } = "kg"; }
     public class SkillActionReq { public int SkillId { get; set; } }

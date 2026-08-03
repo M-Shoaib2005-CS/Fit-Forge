@@ -561,8 +561,8 @@
         function skipRestInSheet(){ if(currentPde != null) finishRest(currentPde, false); }
 
         // ── Swap flagged exercise ─────────────────────────────────────
-        function swapExercise(pdeId, altId, altName){
-          if(!confirm('Replace with ' + altName + '?')) return;
+        async function swapExercise(pdeId, altId, altName){
+          if(!await ffConfirm('Replace with ' + altName + '?')) return;
           var ex = exMap[pdeId];
           ex.exerciseId = altId; ex.name = altName;
           var row = document.getElementById('ex-'+pdeId);
@@ -573,8 +573,8 @@
         }
 
         // ── Finish session ────────────────────────────────────────────
-        function finishSession(){
-          if(loggedSets.length === 0 && !confirm('No sets logged. Finish anyway?')) return;
+        async function finishSession(){
+          if(loggedSets.length === 0 && !await ffConfirm('No sets logged.', 'Finish anyway?')) return;
           var btn = document.getElementById('finish-btn');
           btn.disabled = true; btn.textContent = 'Saving…';
           var notes = document.getElementById('session-notes').value;

@@ -327,13 +327,15 @@
                 return;
               }
               document.getElementById('pr-chart-body').innerHTML='<div style="position:relative; height:260px;"><canvas id="pr-chart-canvas"></canvas></div>';
+              function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+              function dimColor(hex){ return hex && hex[0]==='#' && hex.length===7 ? hex+'33' : hex; } // translucent fill matching a given line color
               var labels = d.points.map(p=>p.label);
               var datasets = [];
               if(d.trackWeight){
-                datasets.push({ label:'Weight (kg)', data:d.points.map(p=>p.weight), borderColor:'#ff5a2b', backgroundColor:'rgba(255,90,43,.12)', tension:.35, yAxisID:'y', pointRadius:3, pointBackgroundColor:'#ff5a2b' });
-                datasets.push({ label:'Volume (kg)', data:d.points.map(p=>p.volume), borderColor:'#d7f24c', backgroundColor:'rgba(215,242,76,.10)', tension:.35, yAxisID:'y1', pointRadius:3, pointBackgroundColor:'#d7f24c' });
+                datasets.push({ label:'Weight (kg)', data:d.points.map(p=>p.weight), borderColor:cssVar('--accent'), backgroundColor:cssVar('--accent-dim'), tension:.35, yAxisID:'y', pointRadius:3, pointBackgroundColor:cssVar('--accent') });
+                datasets.push({ label:'Volume (kg)', data:d.points.map(p=>p.volume), borderColor:cssVar('--lime'), backgroundColor:dimColor(cssVar('--lime')), tension:.35, yAxisID:'y1', pointRadius:3, pointBackgroundColor:cssVar('--lime') });
               } else {
-                datasets.push({ label:'Reps', data:d.points.map(p=>p.reps), borderColor:'#d7f24c', backgroundColor:'rgba(215,242,76,.12)', tension:.35, yAxisID:'y', pointRadius:3, pointBackgroundColor:'#d7f24c' });
+                datasets.push({ label:'Reps', data:d.points.map(p=>p.reps), borderColor:cssVar('--lime'), backgroundColor:dimColor(cssVar('--lime')), tension:.35, yAxisID:'y', pointRadius:3, pointBackgroundColor:cssVar('--lime') });
               }
               if(_prChart) _prChart.destroy();
               var ctx = document.getElementById('pr-chart-canvas').getContext('2d');
@@ -342,11 +344,11 @@
                 data:{ labels:labels, datasets:datasets },
                 options:{
                   responsive:true, maintainAspectRatio:false,
-                  plugins:{ legend:{ labels:{ color:'#f2efe6', font:{family:'Space Mono'} } } },
+                  plugins:{ legend:{ labels:{ color:cssVar('--chalk'), font:{family:'Space Mono'} } } },
                   scales:{
-                    x:{ ticks:{ color:'#8b8d93', maxTicksLimit:6 }, grid:{ color:'#38393e' } },
-                    y:{ position:'left', ticks:{ color:'#ff5a2b' }, grid:{ color:'#38393e' }, title:{ display:true, text:d.trackWeight?'kg':'reps', color:'#8b8d93' } },
-                    y1:{ position:'right', display:d.trackWeight, ticks:{ color:'#d7f24c' }, grid:{ display:false } }
+                    x:{ ticks:{ color:cssVar('--muted'), maxTicksLimit:6 }, grid:{ color:cssVar('--line') } },
+                    y:{ position:'left', ticks:{ color:cssVar('--accent') }, grid:{ color:cssVar('--line') }, title:{ display:true, text:d.trackWeight?'kg':'reps', color:cssVar('--muted') } },
+                    y1:{ position:'right', display:d.trackWeight, ticks:{ color:cssVar('--lime') }, grid:{ display:false } }
                   }
                 }
               });

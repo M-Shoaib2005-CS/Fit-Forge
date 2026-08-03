@@ -23,7 +23,7 @@ namespace FitForge.Controllers
             }
         }
         public override void OnActionExecuting(ActionExecutingContext ctx){
-            if(Uid.HasValue){var u=userDL.GetById(Uid.Value);if(u!=null){ViewData["UserTheme"]=u.Theme;ViewData["CoachName"]=u.CoachName;ViewData["PlateMathEnabled"]=u.PlateMathEnabled;ViewData["PlateMathUnit"]=u.PlateMathUnit;}}
+            if(Uid.HasValue){var u=userDL.GetById(Uid.Value);if(u!=null){ViewData["UserTheme"]=u.Theme;ViewData["AccentColor"]=u.AccentColor;ViewData["CoachName"]=u.CoachName;ViewData["PlateMathEnabled"]=u.PlateMathEnabled;ViewData["PlateMathUnit"]=u.PlateMathUnit;}}
             base.OnActionExecuting(ctx);
         }
     }

@@ -135,6 +135,11 @@ namespace FitForge.DL
             if(theme!="dark"&&theme!="light")theme="dark";
             DB.NonQuery("UPDATE users SET theme=@t WHERE user_id=@id",DB.P("@t",theme),DB.P("@id",uid));
         }
+        public void UpdateAccent(int uid, string accent){
+            var valid = new[]{"orange","lime","pink","blue"};
+            if(Array.IndexOf(valid,accent)<0)accent="orange";
+            DB.NonQuery("UPDATE users SET accent_color=@a WHERE user_id=@id",DB.P("@a",accent),DB.P("@id",uid));
+        }
         public void UpdateNotificationPref(int uid, string pref){
             if(pref!="All"&&pref!="WorkoutOnly"&&pref!="Off")pref="All";
             DB.NonQuery("UPDATE users SET notification_pref=@p WHERE user_id=@id",DB.P("@p",pref),DB.P("@id",uid));
@@ -207,6 +212,7 @@ namespace FitForge.DL
             if(r.Table.Columns.Contains("coach_name")&&r["coach_name"]!=DBNull.Value&&!string.IsNullOrWhiteSpace(r["coach_name"].ToString())) u.CoachName=r["coach_name"].ToString()!;
             if(r.Table.Columns.Contains("plate_math_enabled")&&r["plate_math_enabled"]!=DBNull.Value) u.PlateMathEnabled=Convert.ToInt32(r["plate_math_enabled"])==1;
             if(r.Table.Columns.Contains("plate_math_unit")&&r["plate_math_unit"]!=DBNull.Value&&!string.IsNullOrWhiteSpace(r["plate_math_unit"].ToString())) u.PlateMathUnit=r["plate_math_unit"].ToString()!;
+            if(r.Table.Columns.Contains("accent_color")&&r["accent_color"]!=DBNull.Value&&!string.IsNullOrWhiteSpace(r["accent_color"].ToString())) u.AccentColor=r["accent_color"].ToString()!;
             return u;
         }
     }

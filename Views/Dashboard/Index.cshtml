@@ -145,16 +145,6 @@
       </div>
     </div>
 
-    @if(Model.User.BMI>0){
-    <div class="card">
-      <div class="section-title">Body</div>
-      <div class="profile-stat-grid" style="grid-template-columns:1fr 1fr">
-        <div class="profile-stat"><div class="profile-stat-val">@Model.User.BMI</div><div class="profile-stat-lbl">BMI</div></div>
-        <div class="profile-stat"><div class="profile-stat-val" style="font-size:14px">@Model.User.BMICat</div><div class="profile-stat-lbl">Category</div></div>
-      </div>
-    </div>
-    }
-
     <!-- Top badges -->
     @if(Model.TopBadges.Any()){
     <div class="card">

@@ -554,8 +554,8 @@
 
         // ── USE PRESET ────────────────────────────────────────────────
         // Copies preset into user's library then auto-schedules the week
-        function usePreset(pid, name){
-          if(!confirm('Use "'+name+'"?\n\nIt will be added to your programs and your weekly schedule will be set up automatically. You can still edit the schedule manually afterwards.'))return;
+        async function usePreset(pid, name){
+          if(!await ffConfirm('Use "'+name+'"?', 'It will be added to your programs and your weekly schedule will be set up automatically. You can still edit the schedule manually afterwards.'))return;
           showToast('Setting up program…','success');
           fetch('/Programs/GetFull?programId='+pid)
           .then(function(r){return r.json();}).then(function(d){
