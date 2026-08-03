@@ -1629,6 +1629,14 @@ select.form-input, select.form-control {
     gap: 12px;
 }
 
+.sess-ex {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+}
+
 .sess-ex-name {
     font-weight: 800;
     font-size: 13.5px;
@@ -1667,6 +1675,10 @@ select.form-input, select.form-control {
         color: var(--lime);
         font-family: var(--font-mono);
     }
+
+[data-theme="light"] .sess-set-val b {
+    color: #5c6f0e;
+}
 
 .sess-drop-row {
     display: flex;
