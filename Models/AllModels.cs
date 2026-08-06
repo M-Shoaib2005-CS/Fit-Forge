@@ -430,6 +430,7 @@ namespace FitForge.Models
         public SessionModel? TodaySession { get; set; }
         public SessionModel? TodayCompletedSession { get; set; }
         public ScheduleSlotModel? TodaySlot { get; set; }
+        public UserScheduleModel? ActiveSchedule { get; set; }
         public ProgramDayModel? TodayDay { get; set; }
         public List<ActiveSessionExerciseModel> TodayExercises { get; set; } = new();
         public List<SessionModel> RecentSessions { get; set; } = new();
@@ -473,6 +474,13 @@ namespace FitForge.Models
         public string DayName { get; set; } = "";
         public string ProgramName { get; set; } = "";
         public List<ActiveSessionExerciseModel> Exercises { get; set; } = new();
+
+        // The session's real start time, as recorded server-side when it was created.
+        // The view uses this (plus ServerNow, captured at render time) to compute
+        // elapsed time that survives a page refresh instead of restarting from
+        // Date.now() on every load.
+        public DateTime StartedAt { get; set; }
+        public DateTime ServerNow { get; set; } = DateTime.Now;
     }
 
     public class SkillsVM
@@ -596,6 +604,7 @@ namespace FitForge.Models
         public bool Skipped { get; set; }
         public string SetType { get; set; } = "Working"; // Working | Warmup | Amrap | Drop | Tempo
         public int DropIndex { get; set; } = 0; // 0 = first weight; >0 only for Drop sets
+        public string? Tempo { get; set; } // e.g. "3-1-2-0" eccentric-pause-concentric-pause; only for Tempo sets
     }
 
     public class CreateProgramReq

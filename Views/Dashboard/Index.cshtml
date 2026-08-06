@@ -101,11 +101,34 @@
         @for(int i=0;i<7;i++){
           var day = weekStart.AddDays(i);
           bool isToday = day.Date == DateTime.Today;
-          bool isDone = Model.RecentSessions.Any(s=>s.StartedAt.Date==day.Date);
           bool isFuture = day.Date > DateTime.Today;
+          var slot = Model.ActiveSchedule?.Slots.FirstOrDefault(s => s.WeekDay == i);
+          bool isScheduled = slot?.DayId != null;
+          bool wasLogged = Model.RecentSessions.Any(s=>s.StartedAt.Date==day.Date);
+
+          // Real per-day state instead of a plain done/not-done boolean: a
+          // logged session only ever counts as "done" — a rest day or a
+          // future scheduled day is never conflated with a missed one, and
+          // a past scheduled day with nothing logged now actually shows as
+          // missed rather than just quietly looking the same as a rest day.
+          string dayState;
+          if(!isScheduled) dayState = "rest";
+          else if(wasLogged) dayState = "done";
+          else if(isFuture) dayState = "upcoming";
+          else if(isToday) dayState = "today";
+          else dayState = "missed";
+
+          string dayTitle = dayState switch {
+            "rest" => "Rest day",
+            "done" => "Completed" + (slot!=null ? $" · {slot.DayName}" : ""),
+            "upcoming" => slot!=null ? $"Scheduled · {slot.DayName}" : "Scheduled",
+            "today" => slot!=null ? $"Today · {slot.DayName} · not yet done" : "Today",
+            _ => slot!=null ? $"Missed · {slot.DayName}" : "Missed"
+          };
           <div class="daydot">
-            <div class="dot @(isDone?"done":"") @(isToday?"today":"")">
-              @if(isDone){<svg viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke="var(--accent-ink)" stroke-width="3" stroke-linecap="round"/></svg>}
+            <div class="dot @dayState @(isToday?"istoday":"")" title="@dayTitle">
+              @if(dayState=="done"){<svg viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke="var(--accent-ink)" stroke-width="3" stroke-linecap="round"/></svg>}
+              @if(dayState=="missed"){<svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="var(--danger)" stroke-width="3" stroke-linecap="round"/></svg>}
             </div>
             <div class="lbl">@weekLabels[i]</div>
           </div>

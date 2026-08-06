@@ -3852,6 +3852,23 @@ select.form-input, select.form-control {
             border-style: dashed;
         }
 
+        .daydot .dot.missed {
+            border-color: var(--danger);
+        }
+
+        .daydot .dot.rest {
+            border-style: dotted;
+            opacity: 0.55;
+        }
+
+        .daydot .dot.upcoming {
+            border-color: var(--line);
+        }
+
+        .daydot .dot.istoday {
+            box-shadow: inset 0 0 0 2px var(--lime);
+        }
+
         .daydot .dot svg {
             width: 12px;
             height: 12px;

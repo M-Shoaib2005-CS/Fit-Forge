@@ -304,9 +304,12 @@
           });
         }
         // Weight-first phrasing, e.g. "60 kg for 10 reps" instead of the old "10 reps at 60kg" format.
+        // Tempo sets additionally show the recorded E-P-C-P notation (e.g. "3-1-2-0")
+        // so the actual tempo used is visible in history, not just the "Tempo" badge.
         function sessSetVal(row){
-          if(row.weightKg) return '<b>'+row.weightKg+' kg</b> for '+row.actualReps+' reps';
-          return '<b>'+row.actualReps+'</b> reps';
+          var tempoTag = row.tempo ? ' <span class="text-muted" style="font-size:11px">· tempo '+row.tempo+'</span>' : '';
+          if(row.weightKg) return '<b>'+row.weightKg+' kg</b> for '+row.actualReps+' reps'+tempoTag;
+          return '<b>'+row.actualReps+'</b> reps'+tempoTag;
         }
         function sessSetCard(label, badgeClass, badgeText, row){
           return '<div class="sess-set"><div class="sess-set-head">' +

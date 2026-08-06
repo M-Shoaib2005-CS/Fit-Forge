@@ -56,7 +56,7 @@ namespace FitForge.Controllers
             var dt = DB.Select(
                 @"SELECT ws.session_id, ws.started_at, pd.name AS day_name, p.name AS prog_name,
                     wset.exercise_id, e.name AS ex_name, wset.set_number, wset.actual_reps,
-                    wset.target_reps, wset.weight_kg, wset.was_skipped, wset.set_type, wset.drop_index
+                    wset.target_reps, wset.weight_kg, wset.was_skipped, wset.set_type, wset.drop_index, wset.tempo
                   FROM workout_sessions ws
                   JOIN program_days pd ON ws.day_id = pd.day_id
                   JOIN programs p ON pd.program_id = p.program_id
@@ -92,7 +92,8 @@ namespace FitForge.Controllers
                                 weightKg = r["weight_kg"] != System.DBNull.Value ? (double?)Convert.ToDouble(r["weight_kg"]) : null,
                                 wasSkipped = r["was_skipped"] != System.DBNull.Value && Convert.ToInt32(r["was_skipped"]) == 1,
                                 setType = r["set_type"] != System.DBNull.Value ? r["set_type"].ToString() : "Working",
-                                dropIndex = r["drop_index"] != System.DBNull.Value ? Convert.ToInt32(r["drop_index"]) : 0
+                                dropIndex = r["drop_index"] != System.DBNull.Value ? Convert.ToInt32(r["drop_index"]) : 0,
+                                tempo = r.Table.Columns.Contains("tempo") && r["tempo"] != System.DBNull.Value ? r["tempo"].ToString() : null
                             }).ToList()
                         };
                     }).ToList()

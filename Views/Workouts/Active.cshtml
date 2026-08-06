@@ -54,7 +54,7 @@
             }
             @for (int s = 1; s <= ex.TargetSets; s++)
             {
-                <span class="setdot" id="dot-@(ex.PdeId)-@s"></span>
+                <span class="setdot" id="dot-@(ex.PdeId)-@s" title="Tap to log or edit this set" onclick="event.stopPropagation();openSetSheet(@ex.PdeId,@s)"></span>
             }
         </div>
         <div class="chev" id="chev-@ex.PdeId">›</div>
@@ -125,6 +125,16 @@
             <div id="ff-drop-list" style="display:none;margin-bottom:10px"></div>
             <button type="button" id="ff-add-drop-btn" onclick="addDropPoint()" style="display:none;width:100%;padding:10px;margin-bottom:10px;border-radius:12px;background:none;border:1px dashed var(--accent);color:var(--accent);font-size:13px;font-weight:600;cursor:pointer">+ Add Drop Point →</button>
 
+            <div id="ff-tempo-row" style="display:none;margin-bottom:14px">
+                <div class="flbl" style="margin-bottom:6px">Tempo (eccentric–pause–concentric–pause, seconds)</div>
+                <div style="display:flex;gap:6px">
+                    <input type="number" min="0" max="20" value="3" class="fval ff-tempo-input" id="ff-tempo-ecc" style="width:100%;text-align:center" title="Eccentric (lowering)" />
+                    <input type="number" min="0" max="20" value="1" class="fval ff-tempo-input" id="ff-tempo-pause1" style="width:100%;text-align:center" title="Pause at bottom" />
+                    <input type="number" min="0" max="20" value="2" class="fval ff-tempo-input" id="ff-tempo-con" style="width:100%;text-align:center" title="Concentric (lifting)" />
+                    <input type="number" min="0" max="20" value="0" class="fval ff-tempo-input" id="ff-tempo-pause2" style="width:100%;text-align:center" title="Pause at top" />
+                </div>
+            </div>
+
             <div class="ff-rpewrap">
                 <div class="ff-rpe-head"><span>Effort · RPE</span><b id="ff-rpe-val">7</b></div>
                 <input type="range" min="1" max="10" value="7" id="ff-rpe-slider" oninput="document.getElementById('ff-rpe-val').textContent=this.value">
@@ -193,7 +203,15 @@
         var loggedSets = [];
         var doneCount  = 0;
         var totalSets  = EXERCISES.reduce(function(a,e){ return a+e.sets; }, 0);
-        var startTime  = Date.now();
+        // Server-anchored elapsed timer: StartedAt is the session's real start time
+        // recorded when it was created, and ServerNow is the server's clock at the
+        // moment this page rendered. clockOffsetMs corrects for any difference
+        // between the server's clock and this browser's clock, so elapsed time is
+        // accurate on first load AND stays correct across a page refresh (it no
+        // longer resets to 0:00 just because the client's Date.now() restarted).
+        var SESSION_STARTED_AT_MS = @(new DateTimeOffset(Model.StartedAt).ToUnixTimeMilliseconds());
+        var SERVER_NOW_MS = @(new DateTimeOffset(Model.ServerNow).ToUnixTimeMilliseconds());
+        var clockOffsetMs = SERVER_NOW_MS - Date.now();
         var restTimers = {};
         var currentPde = null, currentSet = null, currentRepVal = 0, currentSetType = 'Working', pendingDrops = [];
         var PLATE_MATH_ENABLED = @(((bool?)ViewData["PlateMathEnabled"] ?? true) ? "true" : "false");
@@ -249,13 +267,16 @@
         }
         restoreDraft();
 
-        // ── Elapsed timer ────────────────────────────────────────────
-        setInterval(function(){
-          var sec = Math.floor((Date.now() - startTime) / 1000);
+        // ── Elapsed timer (server-anchored, survives refresh) ─────────
+        function tickElapsed(){
+          var correctedNow = Date.now() + clockOffsetMs;
+          var sec = Math.max(0, Math.floor((correctedNow - SESSION_STARTED_AT_MS) / 1000));
           var m = Math.floor(sec/60).toString().padStart(2,'0');
           var s = (sec % 60).toString().padStart(2,'0');
           document.getElementById('elapsed').textContent = m + ':' + s;
-        }, 1000);
+        }
+        tickElapsed();
+        setInterval(tickElapsed, 1000);
 
         function updateProgress(){
           document.getElementById('sets-done-pill').textContent = doneCount + '/' + totalSets;
@@ -265,38 +286,51 @@
           document.getElementById('session-pct').textContent = pct + '%';
         }
 
-        // ── Sheet: open for next pending set of an exercise ───────────
-        function openSetSheet(pdeId){
+        // ── Sheet: open for next pending set, OR a specific set to edit ─
+        // forceSetNum lets a specific set-dot be reopened even after the
+        // exercise is already complete, so a wrong entry has a real
+        // correction path instead of being stuck once doneSets hits the cap.
+        function openSetSheet(pdeId, forceSetNum){
           var ex = exMap[pdeId];
           if(!ex) return;
-          if(ex.doneSets >= ex.sets){ return; } // exercise already complete
+          var isEdit = typeof forceSetNum === 'number';
+          if(!isEdit && ex.doneSets >= ex.sets){ return; } // exercise complete, nothing pending to open blind
+
           currentPde = pdeId;
-          currentSet = ex.doneSets + 1;
-          currentRepVal = ex.targetReps;
+          currentSet = isEdit ? forceSetNum : ex.doneSets + 1;
+
+          // If this exact set was already logged, pre-fill the sheet with what
+          // was actually recorded (not just the target) so re-opening it shows
+          // real data to correct, rather than resetting to defaults.
+          var existing = loggedSets.find(function(s){ return s.pdeId === pdeId && s.setNumber === currentSet && s.setType !== 'Drop'; });
+          currentRepVal = existing ? existing.actualReps : ex.targetReps;
 
           document.getElementById('ff-sheet-log').style.display = '';
           document.getElementById('ff-sheet-rest').style.display = 'none';
           document.getElementById('ff-sheet-name').textContent = ex.name;
           document.getElementById('ff-sheet-target').textContent = 'TARGET · ' + ex.targetReps + (ex.trackDuration ? ' SEC' : ' REPS');
-          document.getElementById('ff-sheet-setno').textContent = 'SET ' + currentSet + '/' + ex.sets;
+          document.getElementById('ff-sheet-setno').textContent = (isEdit && existing ? 'EDITING · ' : '') + 'SET ' + currentSet + '/' + ex.sets;
           document.getElementById('ff-rep-count').textContent = currentRepVal;
           document.getElementById('ff-rep-cap').textContent = ex.trackDuration ? 'seconds held' : 'reps completed';
           document.getElementById('ff-weight-row').style.display = ex.trackDuration ? 'none' : 'flex';
-          document.getElementById('ff-weight-input').value = ex.targetWeight || '';
+          document.getElementById('ff-weight-input').value = existing && existing.weightKg != null ? existing.weightKg : (ex.targetWeight || '');
           document.getElementById('ff-weight-input').placeholder = ex.targetWeight ? '' : 'Bodyweight';
           document.getElementById('ff-warmup-btn').style.display = (ex.trackWeight && !ex.warmupDone) ? 'block' : 'none';
           document.getElementById('ff-rest-preview').textContent = ex.restSeconds + 's';
-          document.getElementById('ff-rpe-slider').value = 7;
-          document.getElementById('ff-rpe-val').textContent = 7;
+          document.getElementById('ff-rpe-slider').value = existing && existing.rpe != null ? existing.rpe : 7;
+          document.getElementById('ff-rpe-val').textContent = existing && existing.rpe != null ? existing.rpe : 7;
 
-          currentSetType = 'Working';
+          var startType = existing ? (existing.setType || 'Working') : 'Working';
+          currentSetType = startType;
           document.querySelectorAll('.ff-settype-pill').forEach(function(p){
-            p.classList.toggle('active', p.dataset.type === 'Working');
+            p.classList.toggle('active', p.dataset.type === startType);
           });
+          document.getElementById('ff-tempo-row').style.display = (startType === 'Tempo') ? 'block' : 'none';
+          fillTempoNotation(existing ? existing.tempo : null);
           pendingDrops = [];
           renderDropList();
           document.getElementById('ff-add-drop-btn').style.display = 'none';
-          document.getElementById('ff-log-btn').textContent = '✓ Log Set';
+          document.getElementById('ff-log-btn').textContent = (isEdit && existing) ? '✓ Save Changes' : '✓ Log Set';
           resetWarmupBtnStyle();
           updatePlateMath();
 
@@ -325,7 +359,23 @@
           resetWarmupBtnStyle();
           if(type !== 'Drop'){ pendingDrops = []; renderDropList(); }
           document.getElementById('ff-add-drop-btn').style.display = (type === 'Drop') ? 'block' : 'none';
+          document.getElementById('ff-tempo-row').style.display = (type === 'Tempo') ? 'block' : 'none';
           document.getElementById('ff-log-btn').textContent = (type === 'Drop') ? '✓ Finish Drop Set' : '✓ Log Set';
+        }
+
+        function readTempoNotation(){
+          var e = document.getElementById('ff-tempo-ecc').value || '0';
+          var p1 = document.getElementById('ff-tempo-pause1').value || '0';
+          var c = document.getElementById('ff-tempo-con').value || '0';
+          var p2 = document.getElementById('ff-tempo-pause2').value || '0';
+          return e + '-' + p1 + '-' + c + '-' + p2;
+        }
+        function fillTempoNotation(tempoStr){
+          var parts = (tempoStr || '3-1-2-0').split('-');
+          document.getElementById('ff-tempo-ecc').value = parts[0] ?? 3;
+          document.getElementById('ff-tempo-pause1').value = parts[1] ?? 1;
+          document.getElementById('ff-tempo-con').value = parts[2] ?? 2;
+          document.getElementById('ff-tempo-pause2').value = parts[3] ?? 0;
         }
 
         function renderDropList(){
@@ -454,7 +504,13 @@
           }
 
           var dot = document.getElementById('dot-' + pdeId + '-' + setNum);
-          if(dot) dot.classList.add(skipped ? 'skip' : 'on');
+          // Was this specific set already logged before this commit? If so this
+          // is an edit (reopened via a set-dot after the exercise was already
+          // complete) — it must correct the existing entry in place, not count
+          // as a new set toward doneSets/doneCount (which would overshoot the
+          // exercise's real total and desync the session progress bar).
+          var wasAlreadyLogged = !!(dot && (dot.classList.contains('on') || dot.classList.contains('skip')));
+          if(dot){ dot.classList.remove('on','skip'); dot.classList.add(skipped ? 'skip' : 'on'); }
 
           loggedSets = loggedSets.filter(function(s){ return !(s.pdeId == pdeId && s.setNumber == setNum); });
 
@@ -474,7 +530,17 @@
           } else {
             loggedSets.push({ pdeId: parseInt(pdeId), exerciseId: parseInt(ex.exerciseId), setNumber: setNum,
               targetReps: ex.targetReps, actualReps: reps, weightKg: weight, rpe: rpe, skipped: skipped,
-              setType: currentSetType, dropIndex: 0 });
+              setType: currentSetType, dropIndex: 0, tempo: (currentSetType === 'Tempo' && !skipped) ? readTempoNotation() : null });
+          }
+
+          if(wasAlreadyLogged){
+            // Correction to an already-counted set — update the record and
+            // stop here, without re-running the "new set just finished" flow
+            // (no double increment, no confetti/rest-timer/auto-advance).
+            saveDraft();
+            showStackToast('✓ Set updated', 'success', 1500);
+            closeSetSheet();
+            return;
           }
 
           ex.doneSets++;

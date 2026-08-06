@@ -74,7 +74,21 @@
                 var slot = Model.ActiveSchedule?.Slots.FirstOrDefault(s => s.WeekDay == wd);
                 <div class="schedule-slot" data-wd="@wd">
                     <div class="slot-day">@days[wd]</div>
-                    <select class="form-control slot-select" data-wd="@wd">
+                    <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+                        <select class="form-control slot-program-select" data-wd="@wd" onchange="onScheduleProgramChange(@wd)">
+                            <option value="">Rest</option>
+                            @foreach (var prog in Model.MyPrograms.Concat(Model.PresetPrograms))
+                            {
+                                <option value="@prog.ProgramId">@prog.Name</option>
+                            }
+                        </select>
+                        <select class="form-control slot-day-select" data-wd="@wd" onchange="onScheduleDayChange(@wd)" style="display:none">
+                        </select>
+                    </div>
+                    <!-- Hidden field of record: saveSchedule() still just reads this value per
+                         weekday, so the two visible pickers above only ever exist to set it —
+                         the actual save contract to the server hasn't changed. -->
+                    <select class="slot-select" data-wd="@wd" style="display:none">
                         <option value="">Rest</option>
                         @foreach (var prog in Model.MyPrograms.Concat(Model.PresetPrograms))
                         {
@@ -188,6 +202,66 @@
         var ALL_MUSCLE_GROUPS=@Html.Raw(System.Text.Json.JsonSerializer.Serialize(
                 Model.MuscleGroups.Select(g => new { id = g.GroupId, name = g.Name }),
                 new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }));
+
+        // Backs the Weekly Schedule two-step picker: program first, then a
+        // day scoped to just that program — replaces the old single dropdown
+        // that concatenated every "Program — Day" combo into one flat list.
+        var SCHEDULE_PROGRAMS=@Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                Model.MyPrograms.Concat(Model.PresetPrograms).Select(p => new {
+                    programId = p.ProgramId,
+                    name = p.Name,
+                    days = p.Days.Where(d => d.DayType == "Workout").Select(d => new { dayId = d.DayId, name = d.Name })
+                }),
+                new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }));
+
+        function scheduleProgramForDay(dayId){
+          return SCHEDULE_PROGRAMS.find(function(p){ return p.days.some(function(d){ return d.dayId === dayId; }); });
+        }
+
+        function populateScheduleDaySelect(wd, program, selectedDayId){
+          var daySel = document.querySelector('.slot-day-select[data-wd="'+wd+'"]');
+          daySel.innerHTML = '';
+          (program ? program.days : []).forEach(function(d){
+            var opt = document.createElement('option');
+            opt.value = d.dayId;
+            opt.textContent = d.name;
+            if (selectedDayId && d.dayId === selectedDayId) opt.selected = true;
+            daySel.appendChild(opt);
+          });
+          daySel.style.display = program ? '' : 'none';
+        }
+
+        function onScheduleProgramChange(wd){
+          var progSel = document.querySelector('.slot-program-select[data-wd="'+wd+'"]');
+          var hiddenSel = document.querySelector('.slot-select[data-wd="'+wd+'"]');
+          var programId = progSel.value ? parseInt(progSel.value) : null;
+          var program = programId ? SCHEDULE_PROGRAMS.find(function(p){ return p.programId === programId; }) : null;
+          populateScheduleDaySelect(wd, program, null);
+          // Default to that program's first day until the person picks a specific one.
+          hiddenSel.value = (program && program.days.length) ? program.days[0].dayId : '';
+        }
+
+        function onScheduleDayChange(wd){
+          var daySel = document.querySelector('.slot-day-select[data-wd="'+wd+'"]');
+          var hiddenSel = document.querySelector('.slot-select[data-wd="'+wd+'"]');
+          hiddenSel.value = daySel.value || '';
+        }
+
+        // On load, each weekday's hidden slot-select already carries the
+        // previously-saved dayId (rendered server-side) — reverse that into
+        // which program owns it, so the two visible pickers start pre-filled
+        // instead of resetting to "Rest" for every already-scheduled day.
+        function initScheduleTab(){
+          document.querySelectorAll('.slot-select').forEach(function(hiddenSel){
+            var wd = hiddenSel.dataset.wd;
+            var dayId = hiddenSel.value ? parseInt(hiddenSel.value) : null;
+            var progSel = document.querySelector('.slot-program-select[data-wd="'+wd+'"]');
+            if(!dayId){ progSel.value = ''; populateScheduleDaySelect(wd, null, null); return; }
+            var program = scheduleProgramForDay(dayId);
+            progSel.value = program ? program.programId : '';
+            populateScheduleDaySelect(wd, program, dayId);
+          });
+        }
         var dayCount=0;
         var editingProgramId=null; // null = building a new program; set = editing this existing one
 
@@ -203,6 +277,7 @@
             var banner = document.getElementById('sandbox-invite-banner');
             if(banner) banner.style.display = (!dismissed && editingProgramId===null && !window.__ffSandboxMode) ? '' : 'none';
           }
+          if(tab==='schedule'){ initScheduleTab(); }
         }
 
         function dismissSandboxInvite(){
