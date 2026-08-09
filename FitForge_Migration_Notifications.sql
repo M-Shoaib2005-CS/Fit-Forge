@@ -1,31 +1,31 @@
 -- ============================================================
 -- FitForge — Migration: notification system
--- Run this ONCE against your EXISTING fitforgedb database.
--- Safe to re-run — every step checks before it changes anything.
+-- Run this ONCE against your database. Safe to re-run — every
+-- step checks before it changes anything. Never hardcodes a
+-- schema name; uses TABLE_SCHEMA=DATABASE() (real schema is
+-- `defaultdb`).
 -- ============================================================
-USE fitforgedb;
-
 -- ── 1. Notification preference on users ────────────────────────
 -- 'All' = workout reminders + coach encouragement/injury check-ins,
 -- 'WorkoutOnly' = only workout reminders, 'Off' = nothing sent.
-SET @col := (SELECT COUNT(*) FROM information_schema.COLUMNS
-             WHERE TABLE_SCHEMA='fitforgedb' AND TABLE_NAME='users' AND COLUMN_NAME='notification_pref');
-SET @sql := IF(@col=0, 'ALTER TABLE users ADD COLUMN notification_pref VARCHAR(20) NOT NULL DEFAULT ''All''', 'SELECT 1');
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @nt_col := (SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='notification_pref');
+SET @nt_sql := IF(@nt_col=0, 'ALTER TABLE users ADD COLUMN notification_pref VARCHAR(20) NOT NULL DEFAULT ''All''', 'SELECT 1');
+PREPARE stmt FROM @nt_sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- What time of day the workout/rest-day reminder should go out. Stored as TIME
 -- (not a hardcoded server hour) so it's per-user, set from Settings.
-SET @col2 := (SELECT COUNT(*) FROM information_schema.COLUMNS
-             WHERE TABLE_SCHEMA='fitforgedb' AND TABLE_NAME='users' AND COLUMN_NAME='reminder_time');
-SET @sql2 := IF(@col2=0, 'ALTER TABLE users ADD COLUMN reminder_time TIME NOT NULL DEFAULT ''17:00:00''', 'SELECT 1');
-PREPARE stmt FROM @sql2; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @nt_col2 := (SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='reminder_time');
+SET @nt_sql2 := IF(@nt_col2=0, 'ALTER TABLE users ADD COLUMN reminder_time TIME NOT NULL DEFAULT ''17:00:00''', 'SELECT 1');
+PREPARE stmt FROM @nt_sql2; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- IANA timezone (e.g. 'Asia/Karachi'), captured from the browser when the person enables
 -- notifications, so "reminder_time" means THEIR local wall-clock time, not the server's.
-SET @col3 := (SELECT COUNT(*) FROM information_schema.COLUMNS
-             WHERE TABLE_SCHEMA='fitforgedb' AND TABLE_NAME='users' AND COLUMN_NAME='timezone');
-SET @sql3 := IF(@col3=0, 'ALTER TABLE users ADD COLUMN timezone VARCHAR(64) NOT NULL DEFAULT ''UTC''', 'SELECT 1');
-PREPARE stmt FROM @sql3; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @nt_col3 := (SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='timezone');
+SET @nt_sql3 := IF(@nt_col3=0, 'ALTER TABLE users ADD COLUMN timezone VARCHAR(64) NOT NULL DEFAULT ''UTC''', 'SELECT 1');
+PREPARE stmt FROM @nt_sql3; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- ── 2. Push subscriptions ────────────────────────────────────
 -- One row per device/browser the user has enabled notifications on

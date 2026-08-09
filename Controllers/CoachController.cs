@@ -10,9 +10,41 @@ namespace FitForge.Controllers
 {
     public class ChatTurnDto { public string Role { get; set; } = "user"; public string Text { get; set; } = ""; }
     public class ChatReq { public List<ChatTurnDto> History { get; set; } = new(); }
+    public class DayPickReq { public int DayId { get; set; } public int ExerciseId { get; set; } }
+    public class ResolveSuggestionReq { public int SuggestionId { get; set; } public List<int> DayIds { get; set; } = new(); public List<DayPickReq> Picks { get; set; } = new(); }
 
-    public class CoachController(GeminiService gemini, ProgramBL programBL, ProfileBL profileBL, InjuryDL injuryDL, UserDL uDL, MeasurementDL measDL) : BaseController(uDL)
+    public class CoachController(GeminiService gemini, ProgramBL programBL, ProfileBL profileBL, InjuryDL injuryDL, UserDL uDL, MeasurementDL measDL, RecoveryCoachingBL rcBL) : BaseController(uDL)
     {
+        [HttpGet]
+        public IActionResult GetPendingSuggestion()
+        {
+            if (Uid == null) return Json(new { hasPending = false });
+            var s = rcBL.GetPending(Uid.Value);
+            if (s == null) return Json(new { hasPending = false });
+            return Json(new { hasPending = true, view = rcBL.BuildSuggestionView(s) });
+        }
+
+        [HttpPost, IgnoreAntiforgeryToken]
+        public IActionResult ResolveSuggestion([FromBody] ResolveSuggestionReq req)
+        {
+            if (Uid == null) return Json(new { success = false, msg = "Please log in first." });
+            try
+            {
+                var acceptedDays = new Dictionary<int, int?>();
+                foreach (var dayId in req.DayIds)
+                {
+                    var pick = req.Picks.FirstOrDefault(p => p.DayId == dayId);
+                    acceptedDays[dayId] = pick != null ? pick.ExerciseId : (int?)null;
+                }
+                rcBL.Resolve(Uid.Value, req.SuggestionId, acceptedDays);
+                return Json(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, msg = "Couldn't update that: " + ex.Message });
+            }
+        }
+
         [HttpPost]
         public async Task<IActionResult> Chat([FromBody] ChatReq req)
         {

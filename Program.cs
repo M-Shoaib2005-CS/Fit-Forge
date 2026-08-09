@@ -45,12 +45,12 @@ builder.Services.AddScoped<PersonalRecordDL>(); builder.Services.AddScoped<Strea
 builder.Services.AddScoped<SkillDL>(); builder.Services.AddScoped<InjuryDL>(); builder.Services.AddScoped<MaxTestDL>();
 builder.Services.AddScoped<WaterDL>(); builder.Services.AddScoped<MeasurementDL>();
 builder.Services.AddScoped<AchievementDL>(); builder.Services.AddScoped<CalendarDL>();
-builder.Services.AddScoped<NotificationDL>();
+builder.Services.AddScoped<NotificationDL>(); builder.Services.AddScoped<RecoveryCoachingDL>();
 // BL
 builder.Services.AddScoped<UserBL>(); builder.Services.AddScoped<WorkoutBL>();
 builder.Services.AddScoped<ProgramBL>(); builder.Services.AddScoped<SkillBL>(); builder.Services.AddScoped<MaxTestBL>();
 builder.Services.AddScoped<ProfileBL>(); builder.Services.AddScoped<AchievementBL>();
-builder.Services.AddScoped<NotificationBL>();
+builder.Services.AddScoped<NotificationBL>(); builder.Services.AddScoped<RecoveryCoachingBL>();
 // Services
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();

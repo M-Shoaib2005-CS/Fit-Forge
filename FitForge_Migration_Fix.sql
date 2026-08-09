@@ -1,32 +1,33 @@
 -- ============================================================
 -- FitForge — Migration: fix schema/code name mismatches
--- Run this ONCE against your EXISTING fitforgedb database.
--- Safe to re-run — every step checks before it changes anything.
+-- Run this ONCE against your database. Safe to re-run — every
+-- step checks before it changes anything. Never hardcodes a
+-- schema name; uses TABLE_SCHEMA=DATABASE() (real schema is
+-- `defaultdb`).
 -- ============================================================
-USE fitforgedb;
 
 -- ── 1. Add columns the app code already expects on `users` ────
 -- (WaterDL/UserDL reference these; without them the water-goal
 --  and login-lockout features silently no-op)
-SET @col := (SELECT COUNT(*) FROM information_schema.COLUMNS
-             WHERE TABLE_SCHEMA='fitforgedb' AND TABLE_NAME='users' AND COLUMN_NAME='water_goal_ml');
-SET @sql := IF(@col=0, 'ALTER TABLE users ADD COLUMN water_goal_ml INT NOT NULL DEFAULT 2500', 'SELECT 1');
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @fx_col1 := (SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='water_goal_ml');
+SET @fx_sql1 := IF(@fx_col1=0, 'ALTER TABLE users ADD COLUMN water_goal_ml INT NOT NULL DEFAULT 2500', 'SELECT 1');
+PREPARE stmt FROM @fx_sql1; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
-SET @col := (SELECT COUNT(*) FROM information_schema.COLUMNS
-             WHERE TABLE_SCHEMA='fitforgedb' AND TABLE_NAME='users' AND COLUMN_NAME='login_attempts');
-SET @sql := IF(@col=0, 'ALTER TABLE users ADD COLUMN login_attempts INT NOT NULL DEFAULT 0', 'SELECT 1');
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @fx_col2 := (SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='login_attempts');
+SET @fx_sql2 := IF(@fx_col2=0, 'ALTER TABLE users ADD COLUMN login_attempts INT NOT NULL DEFAULT 0', 'SELECT 1');
+PREPARE stmt FROM @fx_sql2; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
-SET @col := (SELECT COUNT(*) FROM information_schema.COLUMNS
-             WHERE TABLE_SCHEMA='fitforgedb' AND TABLE_NAME='users' AND COLUMN_NAME='lockout_until');
-SET @sql := IF(@col=0, 'ALTER TABLE users ADD COLUMN lockout_until DATETIME NULL', 'SELECT 1');
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @fx_col3 := (SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='lockout_until');
+SET @fx_sql3 := IF(@fx_col3=0, 'ALTER TABLE users ADD COLUMN lockout_until DATETIME NULL', 'SELECT 1');
+PREPARE stmt FROM @fx_sql3; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
-SET @col := (SELECT COUNT(*) FROM information_schema.COLUMNS
-             WHERE TABLE_SCHEMA='fitforgedb' AND TABLE_NAME='users' AND COLUMN_NAME='email_verified');
-SET @sql := IF(@col=0, 'ALTER TABLE users ADD COLUMN email_verified TINYINT(1) NOT NULL DEFAULT 0', 'SELECT 1');
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @fx_col4 := (SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='email_verified');
+SET @fx_sql4 := IF(@fx_col4=0, 'ALTER TABLE users ADD COLUMN email_verified TINYINT(1) NOT NULL DEFAULT 0', 'SELECT 1');
+PREPARE stmt FROM @fx_sql4; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- ── 2. Fix workout_notes' broken FK (it pointed at a column     ──
 --      that doesn't exist on workout_sessions, so this table     ──
@@ -48,6 +49,8 @@ CREATE TABLE workout_notes (
 --      that was never added — so every PR has been creating a    ──
 --      brand-new row instead of updating the best one. Dedupe    ──
 --      down to the best value per group, then add the key.       ──
+--      (Multi-table DELETE — MySQL's safe-update mode does not   ──
+--      apply to these, so no SQL_SAFE_UPDATES wrapper needed.)   ──
 DELETE pr1 FROM personal_records pr1
 INNER JOIN personal_records pr2
   ON pr1.user_id = pr2.user_id
@@ -56,10 +59,10 @@ INNER JOIN personal_records pr2
  AND (pr1.value < pr2.value
       OR (pr1.value = pr2.value AND pr1.pr_id < pr2.pr_id));
 
-SET @idx := (SELECT COUNT(*) FROM information_schema.STATISTICS
-             WHERE TABLE_SCHEMA='fitforgedb' AND TABLE_NAME='personal_records' AND INDEX_NAME='uq_pr');
-SET @sql := IF(@idx=0, 'ALTER TABLE personal_records ADD UNIQUE KEY uq_pr (user_id, exercise_id, record_type)', 'SELECT 1');
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @fx_idx1 := (SELECT COUNT(*) FROM information_schema.STATISTICS
+             WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='personal_records' AND INDEX_NAME='uq_pr');
+SET @fx_sql5 := IF(@fx_idx1=0, 'ALTER TABLE personal_records ADD UNIQUE KEY uq_pr (user_id, exercise_id, record_type)', 'SELECT 1');
+PREPARE stmt FROM @fx_sql5; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- ── 4. user_injuries: same issue — re-logging an injury was      ──
 --      always inserting a new row instead of reactivating the    ──
@@ -72,10 +75,10 @@ INNER JOIN user_injuries ui2
  AND ui1.category_id = ui2.category_id
  AND ui1.ui_id < ui2.ui_id;
 
-SET @idx := (SELECT COUNT(*) FROM information_schema.STATISTICS
-             WHERE TABLE_SCHEMA='fitforgedb' AND TABLE_NAME='user_injuries' AND INDEX_NAME='uq_injury');
-SET @sql := IF(@idx=0, 'ALTER TABLE user_injuries ADD UNIQUE KEY uq_injury (user_id, part_id, category_id)', 'SELECT 1');
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @fx_idx2 := (SELECT COUNT(*) FROM information_schema.STATISTICS
+             WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='user_injuries' AND INDEX_NAME='uq_injury');
+SET @fx_sql6 := IF(@fx_idx2=0, 'ALTER TABLE user_injuries ADD UNIQUE KEY uq_injury (user_id, part_id, category_id)', 'SELECT 1');
+PREPARE stmt FROM @fx_sql6; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- Done. Your existing data (programs, sessions, sets, PRs, etc.) is untouched
 -- except for de-duplicated personal_records/user_injuries rows noted above.

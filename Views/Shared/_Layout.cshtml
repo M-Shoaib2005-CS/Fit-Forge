@@ -88,6 +88,7 @@
 @{ string coachName = ViewData["CoachName"]?.ToString(); if(string.IsNullOrWhiteSpace(coachName)) coachName = "Coach"; }
 <div class="coach-orb" id="coach-orb" onclick="Coach.open()" title="Ask @coachName" data-coach-name="@coachName">
     <svg viewBox="0 0 24 24" fill="none"><path d="M12 2a5 5 0 0 0-5 5v2.05A6 6 0 0 0 3 15v1a1 1 0 0 0 1 1h1.17A3 3 0 0 0 8 19.83V21a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-1.17A3 3 0 0 0 18.83 17H20a1 1 0 0 0 1-1v-1a6 6 0 0 0-4-5.66V7a5 5 0 0 0-5-5Zm-2 9.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Zm4 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Z" fill="var(--accent-ink)"/></svg>
+    <span class="coach-orb-badge" id="coach-orb-badge" style="display:none">1</span>
 </div>
 
 <div class="coach-backdrop" id="coach-backdrop" onclick="if(event.target===this)Coach.close()">

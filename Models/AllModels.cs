@@ -430,7 +430,6 @@ namespace FitForge.Models
         public SessionModel? TodaySession { get; set; }
         public SessionModel? TodayCompletedSession { get; set; }
         public ScheduleSlotModel? TodaySlot { get; set; }
-        public UserScheduleModel? ActiveSchedule { get; set; }
         public ProgramDayModel? TodayDay { get; set; }
         public List<ActiveSessionExerciseModel> TodayExercises { get; set; } = new();
         public List<SessionModel> RecentSessions { get; set; } = new();
@@ -447,6 +446,7 @@ namespace FitForge.Models
         public string RestMessage { get; set; } = "";
         public int TotalWorkouts { get; set; }
         public double AvgSessionMins { get; set; }
+        public UserScheduleModel? ActiveSchedule { get; set; }
     }
 
     public class ProgramsVM
@@ -694,5 +694,65 @@ namespace FitForge.Models
     {
         public double Weight { get; set; }
         public int Reps { get; set; }
+    }
+
+    // ── Recovery-aware volume coaching ───────────────────────────
+    public class DayVolumeLogModel
+    {
+        public int LogId { get; set; }
+        public int UserId { get; set; }
+        public int SessionId { get; set; }
+        public int DayId { get; set; }
+        public string DayName { get; set; } = "";
+        public int SetsCompleted { get; set; }
+        public int SetsScheduled { get; set; }
+        public double Ratio { get; set; }
+        public DateTime LoggedAt { get; set; }
+        public bool IsLow => Ratio < 0.5;
+        public bool IsHigh => Ratio > 2.0;
+    }
+
+    public class CoachSuggestionModel
+    {
+        public int SuggestionId { get; set; }
+        public int UserId { get; set; }
+        public string Type { get; set; } = ""; // day_fix | whole_program_fix | add_exercise
+        public string Payload { get; set; } = "{}"; // JSON, see SuggestionPayload
+        public string Status { get; set; } = "pending";
+        public DateTime CreatedAt { get; set; }
+        public DateTime? ResolvedAt { get; set; }
+    }
+
+    // Shape of CoachSuggestionModel.Payload once deserialized. Every number and
+    // exercise choice in here is computed deterministically in C# — Gemini only
+    // ever phrases this into a message, never generates the values itself.
+    public class SuggestionPayload
+    {
+        public List<SuggestionDay> Days { get; set; } = new();
+    }
+
+    public class SuggestionDay
+    {
+        public int DayId { get; set; }
+        public string DayName { get; set; } = "";
+        public bool IsAnchor { get; set; }
+        public string Reason { get; set; } = ""; // "low" | "high"
+        public List<SuggestedChange> Changes { get; set; } = new(); // for day_fix / whole_program_fix
+        public List<CandidateExercise> Candidates { get; set; } = new(); // for add_exercise
+    }
+
+    public class SuggestedChange
+    {
+        public int PdeId { get; set; }
+        public string ExerciseName { get; set; } = "";
+        public string Action { get; set; } = ""; // "cut_set" | "remove_exercise"
+        public int? NewTargetSets { get; set; }
+    }
+
+    public class CandidateExercise
+    {
+        public int ExerciseId { get; set; }
+        public string Name { get; set; } = "";
+        public string MuscleGroup { get; set; } = "";
     }
 }

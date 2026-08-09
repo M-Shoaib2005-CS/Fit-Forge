@@ -406,6 +406,144 @@ var Coach = (function(){
     els.body.scrollTop = els.body.scrollHeight;
   }
 
+  // ── Volume-coaching suggestion: badge → message → day pick →       ──
+  // ── exercise pick (only for "high"/add days) → preview → apply.    ──
+  // All of `view` (message text, day options, per-day changes/         ──
+  // candidates) was computed deterministically server-side; nothing    ──
+  // here invents numbers or picks exercises — it just renders what     ──
+  // GetPendingSuggestion already returned and posts the final choice.  ──
+  var pendingView = null;
+
+  function checkPendingSuggestion(){
+    fetch('/Coach/GetPendingSuggestion').then(function(r){ return r.json(); }).then(function(d){
+      var badge = document.getElementById('coach-orb-badge');
+      var pills = document.querySelectorAll('.coach-suggestion-pill');
+      if(d.hasPending){
+        pendingView = d.view;
+        if(badge) badge.style.display = 'flex';
+        pills.forEach(function(p){ p.style.display = 'flex'; });
+      } else {
+        pendingView = null;
+        if(badge) badge.style.display = 'none';
+        pills.forEach(function(p){ p.style.display = 'none'; });
+      }
+    }).catch(function(){ /* badge/pill just stay hidden if this fails */ });
+  }
+
+  function addSuggestionMessage(view){
+    addMsg(view.message, 'bot');
+    var wrap = document.createElement('div');
+    wrap.className = 'coach-chips';
+    view.options.forEach(function(opt){
+      var c = document.createElement('div');
+      c.className = 'coach-chip';
+      c.textContent = opt.label;
+      c.onclick = function(){
+        wrap.remove();
+        if(!opt.dayIds || opt.dayIds.length === 0){
+          resolveSuggestion(view, [], []);
+          return;
+        }
+        beginPickFlow(view, opt.dayIds);
+      };
+      wrap.appendChild(c);
+    });
+    els.body.appendChild(wrap);
+    els.body.scrollTop = els.body.scrollHeight;
+  }
+
+  // For every chosen day that needs an exercise pick ("high"/add-exercise
+  // days), show its candidate pills one at a time; low/cut days need no
+  // extra input since their exact change was already computed up front.
+  function beginPickFlow(view, dayIds){
+    var days = view.days.filter(function(d){ return dayIds.indexOf(d.dayId) !== -1; });
+    var needsPick = days.filter(function(d){ return d.reason === 'high'; });
+    var picks = [];
+
+    function next(i){
+      if(i >= needsPick.length){ showPreview(view, dayIds, picks); return; }
+      var day = needsPick[i];
+      addMsg('For ' + day.dayName + ', which one?', 'bot');
+      var wrap = document.createElement('div');
+      wrap.className = 'coach-chips';
+      (day.candidates||[]).forEach(function(cand){
+        var c = document.createElement('div');
+        c.className = 'coach-chip';
+        c.textContent = cand.name;
+        c.onclick = function(){
+          wrap.remove();
+          picks.push({ dayId: day.dayId, exerciseId: cand.exerciseId });
+          next(i+1);
+        };
+        wrap.appendChild(c);
+      });
+      els.body.appendChild(wrap);
+      els.body.scrollTop = els.body.scrollHeight;
+    }
+    next(0);
+  }
+
+  function showPreview(view, dayIds, picks){
+    var days = view.days.filter(function(d){ return dayIds.indexOf(d.dayId) !== -1; });
+    var lines = days.map(function(d){
+      if(d.reason === 'low'){
+        return (d.changes||[]).map(function(c){
+          return d.dayName + ' — ' + (c.action === 'remove_exercise'
+            ? 'remove ' + c.exerciseName
+            : c.exerciseName + ' → ' + c.newTargetSets + ' sets (was more)');
+        }).join('<br>');
+      } else {
+        var pick = picks.filter(function(p){ return p.dayId === d.dayId; })[0];
+        var cand = (d.candidates||[]).filter(function(c){ return c.exerciseId === (pick && pick.exerciseId); })[0];
+        return d.dayName + ' — add ' + (cand ? cand.name : 'new exercise');
+      }
+    }).join('<br>');
+
+    var card = document.createElement('div');
+    card.className = 'coach-propose';
+    card.innerHTML =
+      '<div class="coach-propose-head"><div class="coach-propose-title">Here\'s what I\'ll update</div></div>' +
+      '<div style="font-size:13px;line-height:1.7;margin-bottom:10px">' + lines + '</div>' +
+      '<div class="coach-propose-actions">' +
+        '<button class="btn btn-outline btn-sm" style="flex:1" onclick="this.closest(\'.coach-propose\').remove()">Cancel</button>' +
+        '<button class="btn btn-solid btn-sm" style="flex:1">✓ Apply</button>' +
+      '</div>';
+    card.querySelector('.btn-solid').onclick = function(){ applyResolution(view, dayIds, picks, this, card); };
+    els.body.appendChild(card);
+    els.body.scrollTop = els.body.scrollHeight;
+  }
+
+  function applyResolution(view, dayIds, picks, btn, card){
+    btn.disabled = true; btn.textContent = 'Updating…';
+    resolveSuggestion(view, dayIds, picks, btn, card);
+  }
+
+  function resolveSuggestion(view, dayIds, picks, btn, card){
+    fetch('/Coach/ResolveSuggestion', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ suggestionId: view.suggestionId, dayIds: dayIds, picks: picks })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      if(d.success){
+        if(card){
+          card.querySelector('.coach-propose-actions').outerHTML =
+            '<div class="coach-applied">✓ Updated — check the affected day' + (dayIds.length>1?'s':'') + ' in Programs</div>';
+        } else {
+          addMsg(dayIds.length ? 'Got it — no changes made, all good then.' : 'No worries — left everything as is.', 'bot');
+        }
+        showStackToast(dayIds.length ? 'Program updated 💪' : 'Left as is', 'success', 2500);
+        pendingView = null;
+        var badge = document.getElementById('coach-orb-badge');
+        if(badge) badge.style.display = 'none';
+      } else {
+        if(btn){ btn.disabled = false; btn.textContent = '✓ Apply'; }
+        showStackToast(d.msg || 'Could not update', 'danger');
+      }
+    }).catch(function(){
+      if(btn){ btn.disabled = false; btn.textContent = '✓ Apply'; }
+      showStackToast('Network error', 'danger');
+    });
+  }
+
   function open(){
     el();
     els.backdrop.classList.add('open');
@@ -415,8 +553,12 @@ var Coach = (function(){
       var typing = addTyping();
       setTimeout(function(){
         typing.remove();
-        addMsg("Hey — I'm your FitForge coach. Ask me how something works, or tell me to build you a program.", 'bot');
-        addChips(["How do I build a program?", "Build me a program"]);
+        if(pendingView){
+          addSuggestionMessage(pendingView);
+        } else {
+          addMsg("Hey — I'm your FitForge coach. Ask me how something works, or tell me to build you a program.", 'bot');
+          addChips(["How do I build a program?", "Build me a program"]);
+        }
       }, 500);
     }
   }
@@ -496,8 +638,12 @@ var Coach = (function(){
     });
   }
 
-  return { open: open, close: close, send: send, tweak: tweak, apply: apply };
+  return { open: open, close: close, send: send, tweak: tweak, apply: apply, checkPending: checkPendingSuggestion };
 })();
+
+document.addEventListener('DOMContentLoaded', function(){
+  if(document.getElementById('coach-orb')) Coach.checkPending();
+});
 
 // ── CONFIRM MODAL (styled replacement for native confirm()) ───
 var _ffConfirmPending = null;

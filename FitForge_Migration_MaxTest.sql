@@ -1,13 +1,13 @@
 -- ============================================================
 -- FitForge — Migration: Test Your Max (max_test_attempts table)
--- Run this ONCE against your EXISTING fitforgedb database.
--- Safe to re-run — checks before it changes anything.
+-- Run this ONCE against your database. Safe to re-run — checks
+-- before it changes anything. Never hardcodes a schema name;
+-- uses TABLE_SCHEMA=DATABASE() (real schema is `defaultdb`).
 -- ============================================================
-USE fitforgedb;
 
-SET @t := (SELECT COUNT(*) FROM information_schema.TABLES
-           WHERE TABLE_SCHEMA='fitforgedb' AND TABLE_NAME='max_test_attempts');
-SET @sql := IF(@t=0,
+SET @mt_t := (SELECT COUNT(*) FROM information_schema.TABLES
+           WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='max_test_attempts');
+SET @mt_sql := IF(@mt_t=0,
   'CREATE TABLE max_test_attempts (
       attempt_id   INT          AUTO_INCREMENT PRIMARY KEY,
       user_id      INT          NOT NULL,
@@ -19,4 +19,4 @@ SET @sql := IF(@t=0,
       FOREIGN KEY (exercise_id) REFERENCES exercises(exercise_id)
   )',
   'SELECT 1');
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+PREPARE stmt FROM @mt_sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;

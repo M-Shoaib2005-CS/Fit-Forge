@@ -1,29 +1,35 @@
 -- ============================================================
 -- FitForge — Migration: exercise classification
 -- (equipment type, movement pattern, compound vs isolation)
--- Run this ONCE against your EXISTING fitforgedb database.
--- Safe to re-run — checks before it changes anything.
+-- Run this ONCE against your database. Safe to re-run — checks
+-- before it changes anything. Never hardcodes a schema name;
+-- uses TABLE_SCHEMA=DATABASE() (real schema is `defaultdb`).
+-- Wrapped in SQL_SAFE_UPDATES=0/restore because the UPDATE
+-- statements below filter on `name`, not a key column, which
+-- fails under a client's default safe-update mode otherwise.
 -- ============================================================
-USE fitforgedb;
 
-SET @c1 := (SELECT COUNT(*) FROM information_schema.COLUMNS
-            WHERE TABLE_SCHEMA='fitforgedb' AND TABLE_NAME='exercises' AND COLUMN_NAME='equipment_type');
-SET @s1 := IF(@c1=0,
-  "ALTER TABLE exercises ADD COLUMN equipment_type ENUM('Barbell','Dumbbell','Cable','Machine','Bodyweight','Kettlebell','Bands') NULL",
+SET @ec_old_safe_updates := @@SQL_SAFE_UPDATES;
+SET SQL_SAFE_UPDATES = 0;
+
+SET @ec_c1 := (SELECT COUNT(*) FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='exercises' AND COLUMN_NAME='equipment_type');
+SET @ec_s1 := IF(@ec_c1=0,
+  'ALTER TABLE exercises ADD COLUMN equipment_type ENUM(''Barbell'',''Dumbbell'',''Cable'',''Machine'',''Bodyweight'',''Kettlebell'',''Bands'') NULL',
   'SELECT 1');
-PREPARE stmt FROM @s1; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+PREPARE stmt FROM @ec_s1; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
-SET @c2 := (SELECT COUNT(*) FROM information_schema.COLUMNS
-            WHERE TABLE_SCHEMA='fitforgedb' AND TABLE_NAME='exercises' AND COLUMN_NAME='movement_pattern');
-SET @s2 := IF(@c2=0,
-  "ALTER TABLE exercises ADD COLUMN movement_pattern ENUM('Push','Pull','Squat','Hinge','Carry','Core') NULL",
+SET @ec_c2 := (SELECT COUNT(*) FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='exercises' AND COLUMN_NAME='movement_pattern');
+SET @ec_s2 := IF(@ec_c2=0,
+  'ALTER TABLE exercises ADD COLUMN movement_pattern ENUM(''Push'',''Pull'',''Squat'',''Hinge'',''Carry'',''Core'') NULL',
   'SELECT 1');
-PREPARE stmt FROM @s2; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+PREPARE stmt FROM @ec_s2; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
-SET @c3 := (SELECT COUNT(*) FROM information_schema.COLUMNS
-            WHERE TABLE_SCHEMA='fitforgedb' AND TABLE_NAME='exercises' AND COLUMN_NAME='is_compound');
-SET @s3 := IF(@c3=0, 'ALTER TABLE exercises ADD COLUMN is_compound TINYINT(1) NULL', 'SELECT 1');
-PREPARE stmt FROM @s3; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @ec_c3 := (SELECT COUNT(*) FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='exercises' AND COLUMN_NAME='is_compound');
+SET @ec_s3 := IF(@ec_c3=0, 'ALTER TABLE exercises ADD COLUMN is_compound TINYINT(1) NULL', 'SELECT 1');
+PREPARE stmt FROM @ec_s3; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- Safe to re-run — just re-applies the same classification each time.
 
@@ -63,3 +69,5 @@ UPDATE exercises SET is_compound=1 WHERE name IN
 UPDATE exercises SET is_compound=0 WHERE name IN
     ('Plank','Hollow Body Hold','L-Sit','Hanging Leg Raise','Calf Raise','Nordic Curl',
      'Dumbbell Curl','Tricep Pushdown','Leg Curl','Dumbbell Lateral Raise');
+
+SET SQL_SAFE_UPDATES = @ec_old_safe_updates;

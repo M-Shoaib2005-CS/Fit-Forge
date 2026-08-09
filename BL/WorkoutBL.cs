@@ -8,11 +8,11 @@ namespace FitForge.BL
         WorkoutDL wDL, AdaptiveDL aDL, PersonalRecordDL prDL, SkillDL skillDL,
         StreakDL streakDL, InjuryDL injuryDL, ProgramDL progDL,
         ScheduleDL schedDL, AchievementDL achDL, AchievementBL achBL,
-        WaterDL waterDL, CalendarDL calDL, ExerciseDL exDL, ILogger<WorkoutBL> log)
+        WaterDL waterDL, CalendarDL calDL, ExerciseDL exDL, RecoveryCoachingBL rcBL, ILogger<WorkoutBL> log)
     {
         public DashboardVM BuildDashboard(int uid, UserModel user)
         {
-            var todaySlot = schedDL.GetTodaySlot(uid);
+            var todaySlot   = schedDL.GetTodaySlot(uid);
             var openSession = wDL.GetOpenSession(uid);
             SessionModel? completedToday = null;
             ProgramDayModel? todayDay = null;
@@ -44,26 +44,26 @@ namespace FitForge.BL
 
             return new DashboardVM
             {
-                User = user,
-                TodaySession = openSession,
+                User            = user,
+                TodaySession    = openSession,
                 TodayCompletedSession = completedToday,
-                TodaySlot = todaySlot,
-                ActiveSchedule = schedDL.GetActiveForUser(uid),
-                TodayDay = todayDay,
-                TodayExercises = todayExercises,
-                IsRestDay = isRest,
-                RestMessage = restMsg,
-                HasSchedule = todaySlot != null,
-                RecentSessions = wDL.GetHistory(uid, 5),
-                RecentPRs = prDL.GetForUser(uid, 5),
-                TotalWorkouts = wDL.GetTotalWorkouts(uid),
-                AvgSessionMins = wDL.GetAvgSessionMins(uid),
-                ActiveInjuries = injuryDL.GetActiveForUser(uid),
-                ActiveSkills = skillDL.GetActiveForUser(uid),
-                Water = waterDL.GetTodaySummary(uid),
+                TodaySlot       = todaySlot,
+                TodayDay        = todayDay,
+                TodayExercises  = todayExercises,
+                IsRestDay       = isRest,
+                RestMessage     = restMsg,
+                HasSchedule     = todaySlot != null,
+                RecentSessions  = wDL.GetHistory(uid, 5),
+                RecentPRs       = prDL.GetForUser(uid, 5),
+                TotalWorkouts   = wDL.GetTotalWorkouts(uid),
+                AvgSessionMins  = wDL.GetAvgSessionMins(uid),
+                ActiveInjuries  = injuryDL.GetActiveForUser(uid),
+                ActiveSkills    = skillDL.GetActiveForUser(uid),
+                Water           = waterDL.GetTodaySummary(uid),
                 NewAchievements = newAchievements,
-                TopBadges = achDL.GetBadges(uid).Take(6).ToList(),
-                BmiWarning = user.BMI >= 30 ? $"BMI {user.BMI} — consider speaking to a doctor before intense training." :
+                TopBadges       = achDL.GetBadges(uid).Take(6).ToList(),
+                ActiveSchedule  = schedDL.GetActiveForUser(uid),
+                BmiWarning      = user.BMI >= 30 ? $"BMI {user.BMI} — consider speaking to a doctor before intense training." :
                                   user.BMI < 18.5 && user.BMI > 0 ? $"BMI {user.BMI} — ensure adequate nutrition." : ""
             };
         }
@@ -71,7 +71,7 @@ namespace FitForge.BL
         public ProgramDayModel LoadDayWithTargets(int uid, int dayId)
         {
             var exercises = progDL.GetExercisesForDay(dayId);
-            var targets = aDL.GetTargetsForDay(uid, dayId);
+            var targets   = aDL.GetTargetsForDay(uid, dayId);
             foreach (var ex in exercises)
             {
                 var t = targets.FirstOrDefault(x => x.PdeId == ex.PdeId);
@@ -82,7 +82,7 @@ namespace FitForge.BL
 
         public List<ActiveSessionExerciseModel> BuildActiveExercises(int uid, ProgramDayModel day)
         {
-            var flags = injuryDL.GetFlaggedExercises(uid).ToDictionary(f => f.ExerciseId);
+            var flags   = injuryDL.GetFlaggedExercises(uid).ToDictionary(f => f.ExerciseId);
             var targets = aDL.GetTargetsForDay(uid, day.DayId).ToDictionary(t => t.PdeId);
             return day.Exercises.Select(ex =>
             {
@@ -91,24 +91,24 @@ namespace FitForge.BL
                 var last = wDL.GetLastSet(uid, ex.ExerciseId);
                 return new ActiveSessionExerciseModel
                 {
-                    PdeId = ex.PdeId,
-                    ExerciseId = ex.ExerciseId,
-                    ExerciseName = ex.ExerciseName,
-                    MuscleGroup = ex.MuscleGroup,
-                    TrackingMode = ex.TrackingMode,
-                    TargetSets = ex.TargetSets,
-                    TargetReps = t?.CurrentTargetReps ?? ex.TargetReps,
-                    TargetWeight = t?.CurrentTargetWeight ?? ex.TargetWeightKg,
-                    RestSeconds = ex.RestSeconds,
-                    Notes = ex.Notes,
-                    IsFlagged = flag != null,
-                    FlagReason = flag?.Reason ?? "",
-                    AlternativeId = flag?.AlternativeId,
+                    PdeId           = ex.PdeId,
+                    ExerciseId      = ex.ExerciseId,
+                    ExerciseName    = ex.ExerciseName,
+                    MuscleGroup     = ex.MuscleGroup,
+                    TrackingMode    = ex.TrackingMode,
+                    TargetSets      = ex.TargetSets,
+                    TargetReps      = t?.CurrentTargetReps ?? ex.TargetReps,
+                    TargetWeight    = t?.CurrentTargetWeight ?? ex.TargetWeightKg,
+                    RestSeconds     = ex.RestSeconds,
+                    Notes           = ex.Notes,
+                    IsFlagged       = flag != null,
+                    FlagReason      = flag?.Reason ?? "",
+                    AlternativeId   = flag?.AlternativeId,
                     AlternativeName = flag?.AlternativeName ?? "",
-                    EquipmentType = ex.EquipmentType,
-                    LastReps = last.reps,
-                    LastWeightKg = last.weightKg,
-                    LastDate = last.date
+                    EquipmentType   = ex.EquipmentType,
+                    LastReps        = last.reps,
+                    LastWeightKg    = last.weightKg,
+                    LastDate        = last.date
                 };
             }).ToList();
         }
@@ -173,6 +173,7 @@ namespace FitForge.BL
 
             aDL.UpdateTargetsAfterSession(uid, req.SessionId, req.DayId, progressionStyle, req.Sets);
             streakDL.UpdateStreak(uid);
+            rcBL.RecordSessionAndDetect(uid, req.SessionId, req.DayId, req.Sets);
 
             // Achievement checks
             int totalWorkouts = wDL.GetTotalWorkouts(uid);
@@ -201,13 +202,13 @@ namespace FitForge.BL
             var day = LoadDayWithTargets(uid, dayId);
             return new ActiveWorkoutVM
             {
-                SessionId = sessionId,
-                DayId = dayId,
-                DayName = session.DayName,
+                SessionId   = sessionId,
+                DayId       = dayId,
+                DayName     = session.DayName,
                 ProgramName = session.ProgramName,
-                Exercises = BuildActiveExercises(uid, day),
-                StartedAt = session.StartedAt,
-                ServerNow = DateTime.Now
+                Exercises   = BuildActiveExercises(uid, day),
+                StartedAt   = session.StartedAt,
+                ServerNow   = DateTime.Now
             };
         }
 
@@ -216,14 +217,14 @@ namespace FitForge.BL
             var now = DateTime.Now;
             return new WorkoutsVM
             {
-                History = wDL.GetHistory(uid, 50),
-                PRs = prDL.GetForUser(uid),
+                History      = wDL.GetHistory(uid, 50),
+                PRs          = prDL.GetForUser(uid),
                 CalendarDays = calDL.GetMonth(uid, now.Year, now.Month),
-                Badges = achDL.GetBadges(uid)
+                Badges       = achDL.GetBadges(uid)
             };
         }
 
-        public List<SessionModel> GetHistory(int uid) => wDL.GetHistory(uid, 50);
-        public List<PersonalRecordModel> GetPRs(int uid) => prDL.GetForUser(uid);
+        public List<SessionModel>        GetHistory(int uid) => wDL.GetHistory(uid, 50);
+        public List<PersonalRecordModel> GetPRs(int uid)     => prDL.GetForUser(uid);
     }
 }
