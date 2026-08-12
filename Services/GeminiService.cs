@@ -2,6 +2,8 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using FitForge.DL;
+using FitForge.Models;
 
 namespace FitForge.Services
 {
@@ -29,13 +31,15 @@ namespace FitForge.Services
     {
         private readonly HttpClient _http;
         private readonly ILogger<GeminiService> _log;
+        private readonly ExerciseDL _exDL;
         private readonly string _apiKey;
         private readonly string _model;
 
-        public GeminiService(HttpClient http, IConfiguration config, ILogger<GeminiService> log)
+        public GeminiService(HttpClient http, IConfiguration config, ILogger<GeminiService> log, ExerciseDL exDL)
         {
             _http = http;
             _log = log;
+            _exDL = exDL;
             _apiKey = config["Gemini:ApiKey"] ?? "";
             _model = config["Gemini:Model"] ?? "gemini-3.5-flash-lite";
 
@@ -50,22 +54,43 @@ namespace FitForge.Services
 
         // The exercise catalog embedded in every system prompt so the model can only
         // ever reference IDs that actually exist — no fuzzy name matching needed later.
-        public const string ExerciseCatalog =
-            "1=Push-Up|Chest|reps_only;2=Wide Push-Up|Chest|reps_only;3=Diamond Push-Up|Triceps|reps_only;" +
-            "4=Decline Push-Up|Chest|reps_only;5=Archer Push-Up|Chest|reps_only;6=Pike Push-Up|Shoulders|reps_only;" +
-            "7=Pseudo Planche Push-Up|Chest|reps_only;8=Pull-Up|Back|reps_only;9=Chin-Up|Biceps|reps_only;" +
-            "10=Australian Pull-Up|Back|reps_only;11=Archer Pull-Up|Back|reps_only;12=Commando Pull-Up|Back|reps_only;" +
-            "13=Plank|Core|duration;14=Hollow Body Hold|Core|duration;15=L-Sit|Core|duration;" +
-            "16=Dragon Flag|Core|reps_only;17=Hanging Leg Raise|Core|reps_only;18=Ab Wheel Rollout|Core|reps_only;" +
-            "19=Squat|Legs|reps_only;20=Bulgarian Split Squat|Legs|reps_only;21=Pistol Squat|Legs|reps_only;" +
-            "22=Nordic Curl|Legs|reps_only;23=Jump Squat|Legs|reps_only;24=Calf Raise|Calves|reps_only;" +
-            "25=Handstand Hold|Shoulders|duration;26=Wall Handstand Push-Up|Shoulders|reps_only;27=Burpee|Full Body|reps_only;" +
-            "28=Mountain Climber|Full Body|reps_only;29=Bear Crawl|Full Body|duration;30=Bench Press|Chest|reps_weight;" +
-            "31=Incline Bench Press|Chest|reps_weight;32=Overhead Press|Shoulders|reps_weight;33=Deadlift|Back|reps_weight;" +
-            "34=Barbell Row|Back|reps_weight;35=Barbell Squat|Legs|reps_weight;36=Dumbbell Curl|Biceps|reps_weight;" +
-            "37=Tricep Pushdown|Triceps|reps_weight;38=Cable Row|Back|reps_weight;39=Lat Pulldown|Back|reps_weight;" +
-            "40=Leg Press|Legs|reps_weight;41=Leg Curl|Legs|reps_weight;42=Dumbbell Lateral Raise|Shoulders|reps_weight;" +
-            "43=Jump Rope|Cardio|duration;44=Box Jump|Legs|reps_only;45=Sprint|Cardio|duration";
+        // Was previously a hardcoded const string listing exactly the 45 seed
+        // exercises: any exercise added via the builder or a future seed migration
+        // would have been silently invisible to the coach forever, since nothing
+        // here queried the real `exercises` table. Now built live from ExerciseDL,
+        // so growing the library needs zero code changes to stay coach-visible.
+        //
+        // `filter` lets a caller scope this down to a relevant subset (e.g. only
+        // exercises matching certain muscle groups) instead of always sending the
+        // full catalog — needed once the library grows past ~100-150 exercises,
+        // where a long flat list measurably hurts the model's accuracy at picking
+        // the right item, not just token cost. At the current ~45-exercise size
+        // there's nothing to filter by yet, so every caller passes no filter and
+        // gets the full catalog — this exists so growing the library later is a
+        // one-line change at the call site, not a redesign.
+        public string BuildExerciseCatalog(IEnumerable<string>? muscleGroupFilter = null, IEnumerable<string>? equipmentTypeFilter = null)
+        {
+            var all = _exDL.GetAll();
+            var scoped = all.AsEnumerable();
+            if (muscleGroupFilter != null)
+            {
+                var set = new HashSet<string>(muscleGroupFilter, StringComparer.OrdinalIgnoreCase);
+                scoped = scoped.Where(e => set.Contains(e.MuscleGroup));
+            }
+            if (equipmentTypeFilter != null)
+            {
+                var set = new HashSet<string>(equipmentTypeFilter, StringComparer.OrdinalIgnoreCase);
+                scoped = scoped.Where(e => e.EquipmentType != null && set.Contains(e.EquipmentType));
+            }
+            return string.Join(";", scoped.Select(e => $"{e.ExerciseId}={e.Name}|{e.MuscleGroup}|{e.TrackingMode}"));
+        }
+
+        // Combines the static prompt template with a live (optionally filtered)
+        // catalog. Replaces the old plain `SystemPrompt` const — every caller
+        // needs to call this instead, since the catalog can no longer be baked
+        // in at compile time.
+        public string BuildSystemPrompt(IEnumerable<string>? muscleGroupFilter = null, IEnumerable<string>? equipmentTypeFilter = null)
+            => SystemPromptTemplate.Replace("{{EXERCISE_CATALOG}}", BuildExerciseCatalog(muscleGroupFilter, equipmentTypeFilter));
 
         // Body parts the injury system knows about (must match body_parts table exactly, by name).
         public const string BodyPartCatalog =
@@ -76,7 +101,7 @@ namespace FitForge.Services
         // The only two injury categories the app supports (must match injury_categories table exactly, by name).
         public const string InjuryCategoryCatalog = "Muscle Pull / Strain;Joint Pain / Stiffness";
 
-        public const string SystemPrompt = @"You are the in-app coach for FitForge, a calisthenics + gym fitness tracking app.
+        public const string SystemPromptTemplate = @"You are the in-app coach for FitForge, a calisthenics + gym fitness tracking app.
 Speak like a knowledgeable, encouraging coach — concise, warm, no fluff.
 
 FORMATTING: 'message' is shown as plain text in a chat bubble — it does NOT render markdown. Never use
@@ -101,7 +126,7 @@ APP KNOWLEDGE (use this to answer 'how do I...' questions accurately):
 - Weights are tracked in kilograms (kg) throughout the app.
 
 EXERCISE CATALOG (id=Name|MuscleGroup|TrackingMode — tracking_mode is reps_only, reps_weight, or duration):
-" + ExerciseCatalog + @"
+{{EXERCISE_CATALOG}}
 
 BODY PART CATALOG (name|type) — used only for the injury protocol below:
 " + BodyPartCatalog + @"
@@ -316,9 +341,10 @@ INJURY PROTOCOL (takes priority over the program-building flow if the user menti
                 content = new[] { new { type = "text", text = h.Text } }
             });
 
+            string basePrompt = BuildSystemPrompt();
             string systemInstruction = string.IsNullOrWhiteSpace(userContext)
-                ? SystemPrompt
-                : SystemPrompt + "\n\nUSER CONTEXT (specific to this user, right now — not general knowledge, treat as ground truth):\n" + userContext;
+                ? basePrompt
+                : basePrompt + "\n\nUSER CONTEXT (specific to this user, right now — not general knowledge, treat as ground truth):\n" + userContext;
 
             var body = new
             {

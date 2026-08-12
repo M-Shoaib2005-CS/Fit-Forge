@@ -25,7 +25,10 @@ namespace FitForge.DL
             MuscleGroupId=Convert.ToInt32(r["muscle_group_id"]),
             MuscleGroup=r.Table.Columns.Contains("mg_name")?r["mg_name"].ToString()!:"",
             ExerciseType=r["exercise_type"].ToString()!,TrackingMode=r["tracking_mode"].ToString()!,
-            Difficulty=r["difficulty"].ToString()!,Description=r["description"]?.ToString()??""};
+            Difficulty=r["difficulty"].ToString()!,Description=r["description"]?.ToString()??"",
+            EquipmentType=r.Table.Columns.Contains("equipment_type")&&r["equipment_type"]!=DBNull.Value?r["equipment_type"].ToString():null,
+            MovementPattern=r.Table.Columns.Contains("movement_pattern")&&r["movement_pattern"]!=DBNull.Value?r["movement_pattern"].ToString():null,
+            IsCompound=r.Table.Columns.Contains("is_compound")&&r["is_compound"]!=DBNull.Value?Convert.ToBoolean(r["is_compound"]):(bool?)null};
     }
 
     public class WorkoutDL(ILogger<WorkoutDL> log)
