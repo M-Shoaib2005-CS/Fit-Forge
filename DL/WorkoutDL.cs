@@ -50,6 +50,22 @@ namespace FitForge.DL
             return dt.Rows.Count > 0;
         }
 
+        // Discards an in-progress session entirely — no history, no PRs, no
+        // recovery-coaching signal, nothing. Safe to just DELETE the session
+        // row: sets are never written per-set during a live session (they
+        // only get persisted in FinishSession's batch write), so there's
+        // nothing else in the DB tied to this session to clean up. The
+        // ownership check is baked into the WHERE clause itself, same
+        // IDOR-safe pattern as everywhere else — a tampered sessionId simply
+        // matches zero rows for someone else's session, rather than needing
+        // a separate check-then-delete.
+        public bool DiscardSession(int sid, int uid){
+            int affected = DB.NonQuery("DELETE FROM workout_sessions WHERE session_id=@sid AND user_id=@u",
+                DB.P("@sid",sid), DB.P("@u",uid));
+            if (affected > 0) log.LogInformation("Session discarded uid:{U} sid:{S}", uid, sid);
+            return affected > 0;
+        }
+
         public void FinishSession(int sid, int uid, string? notes){
             DB.NonQuery(@"UPDATE workout_sessions SET finished_at=NOW(),
                 duration_secs=TIMESTAMPDIFF(SECOND,started_at,NOW()),notes=@n

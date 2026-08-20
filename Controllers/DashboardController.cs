@@ -25,6 +25,14 @@ namespace FitForge.Controllers
         }
 
         [HttpPost, IgnoreAntiforgeryToken]
+        public IActionResult DiscardSession([FromBody] DiscardSessionReq req)
+        {
+            if (Uid == null) return Json(new { success = false });
+            bool ok = wBL.DiscardSession(Uid.Value, req.SessionId);
+            return Json(new { success = ok });
+        }
+
+        [HttpPost, IgnoreAntiforgeryToken]
         public IActionResult FinishSession([FromBody] FinishSessionReq req)
         {
             if (Uid == null) return Json(new { success = false });

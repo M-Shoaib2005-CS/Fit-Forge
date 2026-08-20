@@ -658,6 +658,10 @@ button {
     transition: all .15s ease;
 }
 
+    .tab-pill:active {
+        transform: scale(.95);
+    }
+
     .tab-pill.active {
         background: var(--accent);
         color: var(--accent-ink);
@@ -3174,16 +3178,201 @@ select.form-input, select.form-control {
 }
 
 .exrow-main {
+    display: none; /* icon/name/target header — redundant now, hero card shows this */
+}
+
+/* Hero carousel replaced the flat per-row list — nothing was deleted (dots,
+   rest timer, flag note all keep their real ids and every existing
+   set-logging/warm-up/drop-set/tempo/edit-set function untouched), it's just
+   not shown in place. JS moves the currently-focused exercise's real .exrow
+   node into #hero-dots-slot (an actual DOM move, not a clone — set states,
+   rest countdowns, and flag notes all keep working exactly as before). Every
+   other .exrow just stays put, off-screen, until it's its turn. */
+.exrow {
+    display: none;
+}
+
+#hero-dots-slot .exrow {
     display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 13px 15px;
+    background: none;
+    border: none;
+    border-radius: 0;
+    margin-bottom: 0;
+}
+
+.active-divider {
+    height: 1px;
+    background: var(--line);
+    margin: 4px 0 16px;
+}
+
+.hero-card {
+    background: var(--card);
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: 12px;
     cursor: pointer;
 }
 
-    .exrow-main:active {
+.hero-imgwrap {
+    width: 100%;
+    background: var(--card-2);
+    overflow: hidden;
+    position: relative;
+    line-height: 0;
+}
+
+    .hero-imgwrap.ff-loading::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--chalk) 8%, transparent), transparent);
+        animation: ff-shimmer 1.3s ease-in-out infinite;
+    }
+
+@keyframes ff-shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.hero-imgwrap img {
+    width: 100%;
+    height: auto;
+    display: block;
+    transition: opacity .18s ease;
+}
+
+.hero-thumb-fallback {
+    font-size: 48px;
+}
+
+.hero-meta {
+    padding: 14px 16px 10px;
+    transition: opacity .18s ease;
+}
+
+.hero-name {
+    font-family: var(--font-display);
+    font-size: 19px;
+    text-transform: uppercase;
+    color: var(--chalk);
+    margin-bottom: 8px;
+}
+
+.hero-dots-slot .exsets {
+    padding: 0;
+}
+
+.hero-nav {
+    display: flex;
+    border-top: 1px solid var(--line);
+    margin-top: 12px;
+}
+
+.hero-nav-btn {
+    flex: 1;
+    padding: 12px;
+    background: none;
+    border: none;
+    color: var(--chalk);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform .1s ease, background .1s ease;
+}
+
+    .hero-nav-btn:first-child {
+        border-right: 1px solid var(--line);
+    }
+
+    .hero-nav-btn:active {
+        transform: scale(.96);
         background: var(--card-2);
     }
+
+    .hero-nav-btn.hidden {
+        visibility: hidden;
+    }
+
+.bubble-row {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    overflow-x: auto;
+    padding: 2px 2px 14px;
+    scrollbar-width: none;
+}
+
+    .bubble-row::-webkit-scrollbar {
+        display: none;
+    }
+
+.bubble {
+    flex: 0 0 auto;
+    width: 60px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform .1s ease;
+}
+
+    .bubble:active {
+        transform: scale(.92);
+    }
+
+.bubble-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    background: var(--card-2);
+    border: 2px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 4px;
+    overflow: hidden;
+    position: relative;
+    transition: border-color .15s ease;
+}
+
+    .bubble-icon img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+.bubble.active .bubble-icon {
+    border-color: var(--accent);
+}
+
+.bubble-check {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--good);
+    color: var(--bg);
+    font-size: 10px;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bubble-label {
+    font-size: 9px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bubble.active .bubble-label {
+    color: var(--chalk);
+    font-weight: 700;
+}
 
 .exrow.complete {
     border-color: var(--good);
@@ -3242,7 +3431,12 @@ select.form-input, select.form-control {
     height: 8px;
     border-radius: 50%;
     background: var(--line);
+    transition: transform .1s ease, background .15s ease;
 }
+
+    .setdot:active {
+        transform: scale(1.6);
+    }
 
     .setdot.on {
         background: var(--good);
@@ -3628,8 +3822,8 @@ select.form-input, select.form-control {
     margin: 0 auto;
     box-shadow: 0 -10px 30px -10px rgba(0,0,0,.5);
     display: flex;
-    gap: 10px;
     align-items: center;
+    justify-content: center;
 }
 
 @media (max-width:900px) {
@@ -3638,21 +3832,31 @@ select.form-input, select.form-control {
     }
 }
 
-.active-finish-inner textarea {
-    flex: 1;
-    background: var(--bg-soft);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    color: var(--chalk);
-    padding: 9px 12px;
-    font-family: var(--font-body);
-    font-size: 12.5px;
-    resize: none;
+.active-finish-inner .btn {
+    width: 100%;
 }
 
-.active-finish-inner .btn {
-    flex: 0 0 auto;
+.discard-session-btn {
+    display: block;
+    pointer-events: auto;
+    margin: 10px auto 0;
+    background: none;
+    border: none;
+    color: var(--danger);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+    transition: opacity .1s ease;
 }
+
+    .discard-session-btn:active {
+        opacity: .6;
+    }
 
 /* ---------------------------------------------------------------- dashboard v2: hero layout */
 .dash-topbar {

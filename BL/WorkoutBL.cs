@@ -120,6 +120,8 @@ namespace FitForge.BL
             return wDL.StartSession(uid, dayId);
         }
 
+        public bool DiscardSession(int uid, int sessionId) => wDL.DiscardSession(sessionId, uid);
+
         public (bool ok, List<string> newPRs, List<AchievementModel> newAchievements) FinishSession(
             int uid, FinishSessionReq req, string progressionStyle)
         {
@@ -184,6 +186,17 @@ namespace FitForge.BL
 
             allNewAchievements.AddRange(achBL.CheckAfterWorkout(uid, totalWorkouts, streak,
                 totalPRCount, exerciseIds.ToList(), hour, totalVolume));
+
+            // Anything awarded here gets shown to the client immediately (the
+            // Active screen pops it right after Finish) — mark exactly these
+            // seen now, not just on the next Dashboard load. Otherwise these
+            // rows sit at seen=0 (the schema default on insert) until
+            // BuildDashboard's own GetUnseen() catches them, which shows the
+            // exact same badge a second time the moment the user lands back
+            // on the Dashboard. Scoped (not blanket) so an unrelated real
+            // notification earned elsewhere doesn't get silently marked seen
+            // without ever having been shown.
+            if (allNewAchievements.Count > 0) achDL.MarkSeen(uid, allNewAchievements.Select(a => a.AchievementId));
 
             log.LogInformation("Session {S} finished — {N} sets, {V:F0}kg volume", req.SessionId, req.Sets.Count, totalVolume);
             return (true, newPRs, allNewAchievements);

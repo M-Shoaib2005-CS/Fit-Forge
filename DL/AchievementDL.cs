@@ -61,6 +61,26 @@ namespace FitForge.DL
             catch (Exception ex) { log.LogError(ex, "MarkSeen uid={U}", uid); }
         }
 
+        // Scoped version — only marks the specific achievements passed in, not
+        // everything the user has. Needed anywhere the achievement list being
+        // shown didn't come from GetUnseen() itself (e.g. FinishSession builds
+        // its list from fresh award-checks, not a seen-flag query) — a blanket
+        // mark-all there could silently mark some unrelated real notification
+        // as seen without ever having shown it to the user.
+        public void MarkSeen(int uid, IEnumerable<int> achievementIds)
+        {
+            var ids = achievementIds.Distinct().ToList();
+            if (ids.Count == 0) return;
+            try
+            {
+                var placeholders = string.Join(",", ids.Select((_, i) => $"@a{i}"));
+                var pars = new List<MySqlConnector.MySqlParameter> { DB.P("@u", uid) };
+                for (int i = 0; i < ids.Count; i++) pars.Add(DB.P($"@a{i}", ids[i]));
+                DB.NonQuery($"UPDATE user_achievements SET seen=1 WHERE user_id=@u AND achievement_id IN ({placeholders})", pars.ToArray());
+            }
+            catch (Exception ex) { log.LogError(ex, "MarkSeen(scoped) uid={U}", uid); }
+        }
+
         /// <summary>Tries to award an achievement. Returns true if newly unlocked.</summary>
         public bool TryAward(int uid, string code)
         {

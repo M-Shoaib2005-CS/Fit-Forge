@@ -19,6 +19,25 @@
     <div class="cap"><span id="session-cap">0 of @Model.Exercises.Sum(e => e.TargetSets) sets logged</span><span id="session-pct">0%</span></div>
 </div>
 
+<div class="active-divider"></div>
+
+<div class="hero-card" id="hero-card" onclick="openSetSheet(currentFocusPde)">
+    <div class="hero-imgwrap">
+        <img id="hero-img" loading="lazy" />
+        <div class="hero-thumb-fallback" id="hero-thumb-fallback" style="display:none">💪</div>
+    </div>
+    <div class="hero-meta">
+        <div class="hero-name" id="hero-name"></div>
+        <div class="hero-dots-slot" id="hero-dots-slot"></div>
+    </div>
+    <div class="hero-nav">
+        <button class="hero-nav-btn" id="hero-prev" onclick="event.stopPropagation();heroNav(-1)">‹ Prev</button>
+        <button class="hero-nav-btn" id="hero-next" onclick="event.stopPropagation();heroNav(1)">Next ›</button>
+    </div>
+</div>
+
+<div class="bubble-row" id="bubble-row"></div>
+
 <div id="exercise-list">
     @foreach (var ex in Model.Exercises)
     {
@@ -168,9 +187,9 @@
 
 <div class="active-finish-bar">
     <div class="active-finish-inner">
-        <textarea id="session-notes" rows="1" placeholder="Session notes…"></textarea>
         <button class="btn btn-solid finish-btn" id="finish-btn" onclick="finishSession()">✓ Finish</button>
     </div>
+    <button class="discard-session-btn" onclick="discardSession()">Discard Session</button>
 </div>
 
 @section Scripts {
@@ -200,6 +219,94 @@
         var exMap = {};
         EXERCISES.forEach(function(e){ exMap[e.pdeId] = e; e.doneSets = 0; e.exerciseId2 = e.exerciseId; e.warmupDone = false; });
 
+        // ── Hero carousel: large focused exercise + bubble selector row ─
+        // Pure presentation layer over the existing per-exercise DOM (dots,
+        // rest bar, flag note) — those keep their real IDs and functions
+        // untouched; this only controls which .exrow is visible at a time
+        // and what the hero card shows.
+        var currentFocusPde = EXERCISES.length ? EXERCISES[0].pdeId : null;
+
+        function esc(s){
+          return String(s).replace(/[&<>"']/g, function(c){
+            return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+          });
+        }
+
+        function renderHero(){
+          var e = exMap[currentFocusPde];
+          if(!e) return;
+          var img = document.getElementById('hero-img');
+          var wrap = document.querySelector('.hero-imgwrap');
+          var fallback = document.getElementById('hero-thumb-fallback');
+          img.style.display = '';
+          fallback.style.display = 'none';
+          wrap.classList.add('ff-loading');
+          img.onload = function(){ wrap.classList.remove('ff-loading'); };
+          img.src = '/images/exercises/' + e.exerciseId + '.gif';
+          img.onerror = function(){
+            img.onerror = function(){ img.style.display = 'none'; fallback.style.display = 'flex'; wrap.classList.remove('ff-loading'); };
+            img.src = '/images/exercises/' + e.exerciseId + '.svg';
+          };
+          document.getElementById('hero-name').textContent = e.name;
+
+          var idx = EXERCISES.findIndex(function(x){ return x.pdeId === currentFocusPde; });
+          document.getElementById('hero-prev').classList.toggle('hidden', idx <= 0);
+          document.getElementById('hero-next').classList.toggle('hidden', idx >= EXERCISES.length - 1);
+
+          // Move the real .exrow node (dots + flag-note + rest-bar) into the
+          // hero card rather than cloning it — same element, same ids, so
+          // every set-dot's on/skip state, the rest timer, and the injury
+          // flag note keep working exactly as before. exrow-main (the old
+          // icon/name/target header) stays hidden via CSS since the hero
+          // card already shows name/image.
+          var slot = document.getElementById('hero-dots-slot');
+          var row = document.getElementById('ex-' + currentFocusPde);
+          if(row && slot.firstChild !== row) slot.appendChild(row);
+        }
+
+        function renderBubbles(){
+          var row = document.getElementById('bubble-row');
+          row.innerHTML = '';
+          EXERCISES.forEach(function(e){
+            var active = e.pdeId === currentFocusPde;
+            var done = e.doneSets >= e.sets;
+            var b = document.createElement('div');
+            b.className = 'bubble' + (active ? ' active' : '');
+            b.onclick = function(){ heroGoTo(e.pdeId); };
+            b.innerHTML =
+              '<div class="bubble-icon">' +
+                '<img src="/images/exercises/' + e.exerciseId + '.gif" loading="lazy" onerror="this.style.display=\'none\'" />' +
+                (done ? '<span class="bubble-check">✓</span>' : '') +
+              '</div>' +
+              '<div class="bubble-label">' + esc(e.name) + '</div>';
+            row.appendChild(b);
+          });
+        }
+
+        function heroGoTo(pdeId){
+          if(pdeId === currentFocusPde) return;
+          var img = document.getElementById('hero-img');
+          var meta = document.querySelector('.hero-meta');
+          img.style.opacity = 0;
+          if(meta) meta.style.opacity = 0;
+          setTimeout(function(){
+            currentFocusPde = pdeId;
+            renderHero();
+            renderBubbles();
+            img.style.opacity = 1;
+            if(meta) meta.style.opacity = 1;
+          }, 140);
+        }
+
+        function heroNav(dir){
+          var idx = EXERCISES.findIndex(function(x){ return x.pdeId === currentFocusPde; });
+          var next = EXERCISES[idx + dir];
+          if(next) heroGoTo(next.pdeId);
+        }
+
+        renderHero();
+        renderBubbles();
+
         var loggedSets = [];
         var doneCount  = 0;
         var totalSets  = EXERCISES.reduce(function(a,e){ return a+e.sets; }, 0);
@@ -223,12 +330,28 @@
         function saveDraft(){
           try{
             localStorage.setItem('ff-draft-' + SESSION_ID, JSON.stringify({
-              loggedSets: loggedSets, doneCount: doneCount,
-              notes: document.getElementById('session-notes').value
+              loggedSets: loggedSets, doneCount: doneCount
             }));
           }catch(e){}
         }
         function clearDraft(){ try{ localStorage.removeItem('ff-draft-' + SESSION_ID); }catch(e){} }
+
+        // Abandons the session entirely — nothing gets saved: no history, no
+        // PRs, no streak credit, no recovery-coaching signal. Different from
+        // Finish, which always persists whatever was logged so far.
+        async function discardSession(){
+          var ok = await ffConfirm('Discard this session?', 'Nothing you\'ve logged will be saved. This can\'t be undone.');
+          if(!ok) return;
+          try{
+            await fetch('/Dashboard/DiscardSession', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sessionId: SESSION_ID })
+            });
+          }catch(e){ /* still leave — an orphaned open session just gets resumed/overwritten next time */ }
+          clearDraft();
+          window.location.href = '/Dashboard/Index';
+        }
+
         function restoreDraft(){
           var raw;
           try{ raw = localStorage.getItem('ff-draft-' + SESSION_ID); }catch(e){ return; }
@@ -238,7 +361,6 @@
             if(!draft.loggedSets || !draft.loggedSets.length) return;
             loggedSets = draft.loggedSets;
             doneCount  = draft.doneCount || loggedSets.length;
-            if(draft.notes) document.getElementById('session-notes').value = draft.notes;
             loggedSets.forEach(function(s){
               var ex = exMap[s.pdeId];
               if(!ex) return;
@@ -554,6 +676,7 @@
           if(exerciseDone){
             document.getElementById('ex-'+pdeId).classList.add('complete');
             document.getElementById('chev-'+pdeId).textContent = '✓';
+            renderBubbles();
           }
 
           if(doneCount === totalSets){
@@ -643,7 +766,7 @@
           if(loggedSets.length === 0 && !await ffConfirm('No sets logged.', 'Finish anyway?')) return;
           var btn = document.getElementById('finish-btn');
           btn.disabled = true; btn.textContent = 'Saving…';
-          var notes = document.getElementById('session-notes').value;
+          var notes = '';
           fetch('/Dashboard/FinishSession', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

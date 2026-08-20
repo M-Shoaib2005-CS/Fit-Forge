@@ -581,6 +581,7 @@ namespace FitForge.Models
     public class PlateMathReq { public bool Enabled { get; set; } = true; public string Unit { get; set; } = "kg"; }
     public class SkillActionReq { public int SkillId { get; set; } }
     public class StartSessionReq { public int DayId { get; set; } }
+    public class DiscardSessionReq { public int SessionId { get; set; } }
     public class LogInjuryReq { public int PartId { get; set; } public int CategoryId { get; set; } public string Notes { get; set; } = ""; }
     public class WaterLogReq { public int AmountMl { get; set; } = 250; }
 

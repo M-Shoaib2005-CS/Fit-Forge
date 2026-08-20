@@ -1,17 +1,17 @@
 # FitForge — Roadmap to "Best Calisthenics App"
 
-**Current state rating: 7.5/10** *(was 7/10 — see "Honest re-rate" below for why it only moved a little)*
+**Current state rating: 8/10** *(was 7.5, before that 7 — see "Honest re-rate" below)*
 
-Strong engineering fundamentals (parameterized SQL, BCrypt + lockout, real production hardening, offline-safe draft recovery) held back by a thin exercise library, an unverified core logging-speed metric, and zero progress yet on the AI coach's biggest whitespace opportunity (recovery-awareness). The one real security bug from the original assessment is fixed. This session closed five more real functional gaps in the core logging loop — none of them differentiators, all of them things that would have quietly eroded trust in daily use.
+Strong engineering fundamentals (parameterized SQL, BCrypt + lockout, real production hardening, offline-safe draft recovery), now joined by a genuinely working differentiator: recovery-aware volume coaching went from "biggest unstarted whitespace" to built, deployed, and battle-tested through real device usage — including catching and fixing bugs (cooldown interactions, ratio math, distinct-days logic) that only surfaced under actual use, not just code review. Exercise library nearly tripled. Held back from going higher by the same two things as last time: the skill tree — the *other* real differentiator — still hasn't grown past its original seed, and the core "how fast can you log a set" metric is still unmeasured.
 
 **What already sets FitForge apart from Hevy / Strong / Fitbod / Jefit:**
-- Calisthenics-first skill tree with requirement-gated unlocks (none of the big four have this)
+- Calisthenics-first skill tree with requirement-gated unlocks (none of the big four have this) — **but still stuck at its original 8-skill seed**
 - Injury-aware exercise flagging + automatic alternative suggestion
-- A real conversational AI coach (Gemini-backed), not a black-box algorithm or a paid bolt-on
+- A real conversational AI coach (Gemini-backed) that now proactively watches training volume and proposes concrete program adjustments — not a black-box algorithm, not a paid bolt-on, and not just reactive chat anymore
 - Adaptive per-exercise targets that update after every session
 - PWA with push notifications and offline draft recovery for in-progress workouts
 
-**Honest re-rate — why only +0.5, not more:** everything shipped this session was debt-paying, not moat-building. A timer that lied on refresh, no way to fix a fat-fingered rep count, a Tempo pill that captured no data, a schedule dropdown that became unusable past one program, a dashboard signal that couldn't tell "rest day" from "missed workout" — these are exactly the kind of rough edges that make a real user (your sister, or anyone else) quietly lose a bit of trust in the app, even if they can't articulate why. Fixing them was worth doing and worth doing carefully. But none of it touches what would actually separate FitForge from Hevy/Strong: the exercise library is still thin, the skill tree still hasn't grown past its original seed, the core "how fast can you log a set" metric is still unmeasured, and the recovery-awareness gap — the single biggest whitespace in the whole category per every competitor review — hasn't been started. The score can't move meaningfully until Phase 2 gets real attention.
+**Honest re-rate — why +0.5, not more:** recovery coaching earns its keep this time — it's not just "written," it's the kind of feature that only becomes trustworthy after someone actually pounds on it with real sessions and finds the edge cases (which happened: a cooldown that silently blocked legitimate re-triggers, a ratio calc that couldn't tell "skipped the set" from "did it at half effort," a whole-program check that fired on the same day repeated instead of genuine rotation). All real bugs, all fixed, all now behind real evidence instead of "should work." That's worth something concrete. The exercise library also grew for real, not just in count — curated down from 1324 candidates, junk removed by hand. But the skill tree — explicitly called "the real moat" last time — is still exactly where it was. Until that moves, or the core loop gets actually benchmarked instead of assumed fast, the ceiling stays right here.
 
 ---
 
@@ -61,6 +61,19 @@ The biggest single item on the whole roadmap — designed collaboratively over m
 **UX flow:** coach icon gets a small "1" badge (in-app only — not a push notification) → opening chat shows the suggestion as a natural message with Fix/Fix+Bundled/Leave-it pills → any "add exercise" day prompts a follow-up candidate-pill pick → a preview card shows exactly what will change → explicit Apply/Cancel. A "See coach suggestion" pill also appears on the Workouts tab, deep-linking straight into chat. Same badge-check call drives both surfaces — no duplicate network requests.
 
 New tables: `day_volume_log`, `day_suggestion_cooldown`, `coach_suggestions`. New `RecoveryCoachingDL`/`RecoveryCoachingBL`, wired into `FinishSession` right after the existing per-exercise adaptive-target logic. Every table/column name was cross-checked against the actual schema, not assumed. **Not yet build-verified** — no dotnet SDK available in the sandbox, so this was validated statically (brace/paren balance, `node --check` on all JS) but should be the first thing checked on your next local build, since it's structurally the most novel C# added this project (new DI classes, JSON payload serialization).
+
+### Active-screen carousel redesign (this session)
+Replaced the flat vertical list of exercise cards with a hero carousel: the currently-focused exercise's GIF shows large and full-width, with Prev/Next controls at the bottom edge of that card (hidden appropriately at the first/last exercise), and a horizontal row of small icon+name bubbles below it for quick jumping — selected bubble gets an accent highlight, completed exercises get a checkmark badge. Switching exercises (via arrows or bubble tap) fades rather than snaps.
+
+Built as a pure presentation layer over the existing per-exercise DOM — the dots row, rest timer, flag-note, and warm-up/drop-set/tempo/edit-set logic all kept their exact same IDs and functions; only which `.exrow` is visible changed. Zero risk to the set-logging mechanics that took most of this session to get right.
+
+Also bundled: tap-feedback (scale-down on press) added to tab-pills and set-dots where missing, and a real loading skeleton (shimmer) on the hero image while it loads instead of a blank flash. Confirmed with the user first via an interactive demo in-chat before writing the real code, given the size of the change and the inability to preview it live.
+
+**Not done, flagged rather than guessed:** refined empty states (Skills/Workouts-history zero-state screens) and a full sitewide easing/transition sweep were both on the "all quality improvements" ask but are broad enough to warrant their own reviewed pass rather than a blind touch-everything sweep — held back on purpose.
+
+
+1. **Discard session** — new ✕ button on the Active workout header. Confirms first (`ffConfirm`), then deletes the session row outright and clears the localStorage draft. Nothing gets persisted — no history, no PRs, no recovery-coaching signal — since sets only ever batch-write at Finish, discarding before that point has nothing else to clean up.
+2. **Duplicate achievement popup, fixed** — badges earned during `FinishSession` were shown immediately on the Active screen, but never marked `seen` there (only `BuildDashboard`'s own achievement path did that, for its own query). So the exact same badge showed a second time the moment the user landed back on the Dashboard, since it was still sitting at `seen=0`. Fixed by marking newly-awarded achievements seen right after building the list in `FinishSession` — scoped to just those specific achievement IDs (not a blanket "mark everything seen for this user"), so an unrelated real notification earned elsewhere can't get silently swallowed by the fix.
 
 ### Real-fixes round
 All five verified against the actual code — not assumed from memory — fixed for real behavior, not cosmetically, and validated: JS via `node --check` with proper Razor-expression neutralization after every change, C# via brace/paren balance checks on every touched file.
